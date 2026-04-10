@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kakeibo-v1';
+const CACHE_NAME = 'kakeibo-v4';
 const ASSETS = [
   './index.html',
   './manifest.json',
@@ -26,6 +26,17 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  // Always fetch fresh for HTML — never serve from cache
+  if (event.request.destination === 'document' || event.request.url.endsWith('index.html')) {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        return response;
+      }).catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
@@ -34,11 +45,7 @@ self.addEventListener('fetch', event => {
         const clone = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         return response;
-      }).catch(() => {
-        if (event.request.destination === 'document') {
-          return caches.match('./index.html');
-        }
-      });
+      }).catch(() => {});
     })
   );
 });
