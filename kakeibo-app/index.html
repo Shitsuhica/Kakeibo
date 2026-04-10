@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -733,7 +734,6 @@ const incTypeLabel=id=>{const x=INC_TYPES[id];return x?(x[lang]||x.es):id;};
 const freqLabel=id=>{const x=FREQS[id];return x?(x[lang]||x.es):id;};
 const monthlyEquiv=(amt,freq)=>amt*(FREQS[freq]?.mult||1);
 const today=()=>new Date().toISOString().split('T')[0];
-const saveUser=()=>{if(currentUser&&users[currentUser]){users[currentUser].expenses=expenses;users[currentUser].incomes=incomes;users[currentUser].bankExpenses=bankExpenses;users[currentUser].budgets=budgets;}};
 
 // ===== ONBOARDING =====
 function selLang(l,el){lang=l;document.querySelectorAll('.lang-grid .sel-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
