@@ -15,10 +15,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
+// Support both old (eyJ...) and new (sb_secret_...) Supabase key formats
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { autoRefreshToken: false, persistSession: false } }
+  supabaseKey,
+  { 
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: {
+      headers: supabaseKey.startsWith('sb_secret_') 
+        ? { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+        : {}
+    }
+  }
 );
 
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*', methods: ['GET','POST','PUT','DELETE'] }));
@@ -30,10 +39,14 @@ app.use(express.static(path.join(__dirname, '../kakeibo-app')));
 async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'No autorizado.' });
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) return res.status(401).json({ error: 'Token inválido.' });
-  req.user = user;
-  next();
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) return res.status(401).json({ error: 'Token inválido.' });
+    req.user = user;
+    next();
+  } catch(e) {
+    return res.status(401).json({ error: 'Error de autenticación.' });
+  }
 }
 
 // ══════════════════════════════
