@@ -62,8 +62,14 @@ app.post('/api/auth/register', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
+  console.log('Login attempt:', email);
+  console.log('ANON KEY starts with:', (process.env.SUPABASE_ANON_KEY||'').substring(0,20));
+  console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
   const { data, error } = await supabaseAuth.auth.signInWithPassword({ email, password });
-  if (error) return res.status(401).json({ error: 'Credenciales incorrectas.' });
+  if (error) {
+    console.log('Login error:', error.message, error.status, error.code);
+    return res.status(401).json({ error: error.message });
+  }
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
   res.json({ success: true, user: data.user, session: data.session, profile });
 });
