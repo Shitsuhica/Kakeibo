@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>家計簿 Kakeibo</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2D5016">
+<meta name="mobile-web-app-capable" content="yes">
+
+<!-- iOS Safari PWA -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kakeibo">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+
+<!-- SEO / Share -->
+<meta name="description" content="Control inteligente de ingresos y gastos. Japón, Perú y México. ES · EN · 日本語">
+<meta name="author" content="Kakeibo App">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg: #F7F5F0;
+  --surface: #FFFFFF;
+  --surface2: #F0EDE6;
+  --border: rgba(0,0,0,0.09);
+  --border2: rgba(0,0,0,0.15);
+  --text: #1A1814;
+  --text2: #6B6760;
+  --text3: #9B9890;
+  --accent: #2D5016;
+  --accent-light: #EAF0E3;
+  --accent2: #C8532A;
+  --accent2-light: #FAF0EC;
+  --income-color: #2A6B3C;
+  --income-bg: #E8F5ED;
+  --expense-color: #8B2020;
+  --expense-bg: #FAEAEA;
+  --warn-color: #7A4A00;
+  --warn-bg: #FFF4E0;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --font: 'DM Sans', 'Noto Sans JP', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg);min-height:100%}
+body{font-family:var(--font);font-size:14px;color:var(--text);background:var(--bg);min-height:100vh}
+
+/* LAYOUT */
+.screen{display:none}.screen.active{display:block}
+.app-shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh;max-width:1100px;margin:0 auto}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:1.5rem 1rem;display:flex;flex-direction:column;gap:.25rem;position:sticky;top:0;height:100vh;overflow-y:auto}
+.main-content{padding:2rem;overflow-y:auto}
+@media(max-width:680px){
+  .app-shell{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .sidebar{height:auto;flex-direction:row;flex-wrap:wrap;padding:.75rem;position:relative;overflow-x:auto;gap:.25rem;border-right:none;border-bottom:1px solid var(--border)}
+  .sidebar-brand{display:none}
+  .sidebar-user{display:none}
+  .main-content{padding:1rem}
+  .grid4{grid-template-columns:1fr 1fr!important}
+}
+
+/* SIDEBAR */
+.sidebar-brand{padding:.5rem .5rem 1rem;border-bottom:1px solid var(--border);margin-bottom:.5rem}
+.brand-kanji{font-size:22px;line-height:1;margin-bottom:2px}
+.brand-name{font-size:12px;font-weight:500;color:var(--text2);letter-spacing:.08em;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);font-size:13px;font-weight:400;border:none;background:none;width:100%;text-align:left;transition:all .15s}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--accent-light);color:var(--accent);font-weight:500}
+.nav-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.sidebar-user{margin-top:auto;padding-top:1rem;border-top:1px solid var(--border)}
+.user-row{display:flex;align-items:center;gap:8px;padding:8px}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent-light);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;flex-shrink:0}
+.user-name{font-size:12px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-cur{font-size:11px;color:var(--text3)}
+.btn-logout{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:4px 8px;border-radius:var(--radius-xs)}
+.btn-logout:hover{color:var(--accent2);background:var(--accent2-light)}
+
+/* CARDS & METRICS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem}
+.card-title{font-size:13px;font-weight:500;color:var(--text2);margin-bottom:1rem;text-transform:uppercase;letter-spacing:.05em}
+.metric-grid{display:grid;gap:10px;margin-bottom:1rem}
+.grid2{grid-template-columns:1fr 1fr}
+.grid3{grid-template-columns:1fr 1fr 1fr}
+.grid4{grid-template-columns:1fr 1fr 1fr 1fr}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;box-shadow:var(--shadow)}
+.metric.income{background:var(--income-bg);border-color:rgba(42,107,60,.15)}
+.metric.expense{background:var(--expense-bg);border-color:rgba(139,32,32,.15)}
+.metric.balance-pos{background:#E8F5F0;border-color:rgba(15,110,86,.15)}
+.metric.balance-neg{background:var(--warn-bg);border-color:rgba(122,74,0,.15)}
+.metric-label{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+.metric-val{font-size:20px;font-weight:400;letter-spacing:-.02em}
+.metric-sub{font-size:11px;color:var(--text3);margin-top:3px}
+
+/* FORMS */
+.form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.form-group label{font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.05em}
+input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],select,textarea{
+  width:100%;padding:9px 12px;font-size:13px;font-family:var(--font);
+  border:1px solid var(--border2);border-radius:var(--radius-xs);
+  background:var(--surface);color:var(--text);outline:none;transition:border .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:64px}
+.form-row{display:grid;gap:10px}
+.form-2{grid-template-columns:1fr 1fr}
+.form-3{grid-template-columns:1fr 1fr 1fr}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 18px;font-size:13px;font-weight:500;font-family:var(--font);border-radius:var(--radius-xs);cursor:pointer;border:1px solid var(--border2);background:var(--surface);color:var(--text);transition:all .15s}
+.btn:hover{background:var(--surface2)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:#3a6b1e;border-color:#3a6b1e}
+.btn-danger{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+.btn-block{width:100%;display:flex}
+.btn-sm{padding:5px 12px;font-size:12px}
+
+/* BADGES */
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500;white-space:nowrap}
+.badge-fixed{background:#E6F1FB;color:#0C447C}
+.badge-variable{background:#FFF4E0;color:#7A4A00}
+.badge-income{background:var(--income-bg);color:var(--income-color)}
+.badge-freq{background:var(--accent-light);color:var(--accent)}
+.badge-bank{background:#EEEDFE;color:#3C3489}
+.badge-cc{background:#FBEAF0;color:#72243E}
+
+/* ALERTS */
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:.75rem;display:flex;align-items:flex-start;gap:8px}
+.alert-ok{background:var(--income-bg);color:var(--income-color);border:1px solid rgba(42,107,60,.15)}
+.alert-warn{background:var(--warn-bg);color:var(--warn-color);border:1px solid rgba(122,74,0,.2)}
+.alert-danger{background:var(--expense-bg);color:var(--expense-color);border:1px solid rgba(139,32,32,.15)}
+.alert-info{background:#E6F1FB;color:#0C447C;border:1px solid rgba(24,95,165,.15)}
+
+/* LISTS */
+.list-item{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;transition:border .15s}
+.list-item:hover{border-color:var(--border2)}
+.item-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.item-body{flex:1;min-width:0}
+.item-name{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item-meta{font-size:11px;color:var(--text3);margin-top:2px}
+.item-amount{font-size:14px;font-weight:500;white-space:nowrap}
+.item-amount.positive{color:var(--income-color)}
+.item-amount.negative{color:var(--expense-color)}
+
+/* CAT BARS */
+.cat-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.cat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cat-label{font-size:12px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-bar-bg{flex:2;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.cat-bar-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.cat-amount{font-size:12px;font-weight:500;min-width:90px;text-align:right}
+
+/* PROGRESS */
+.prog-item{margin-bottom:12px}
+.prog-header{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2);margin-bottom:4px}
+.prog-bg{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.prog-fill{height:100%;border-radius:4px;transition:width .5s}
+
+/* PERIOD TABS */
+.period-tabs{display:flex;gap:4px;margin-bottom:1.25rem;flex-wrap:wrap}
+.ptab{padding:5px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-weight:400;font-family:var(--font);transition:all .15s}
+.ptab:hover{background:var(--surface2)}
+.ptab.active{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:500}
+
+/* TABS */
+.tabs{display:flex;gap:2px;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab{padding:7px 14px;font-size:12px;cursor:pointer;border:none;background:none;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;font-family:var(--font);font-weight:400;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:500}
+
+/* ONBOARDING */
+.ob-center{max-width:440px;margin:0 auto;padding:2rem 1rem}
+.ob-logo{text-align:center;padding:2rem 0 1.5rem}
+.ob-kanji{font-size:48px;line-height:1;margin-bottom:6px}
+.ob-title{font-size:24px;font-weight:400;margin-bottom:4px}
+.ob-sub{font-size:14px;color:var(--text2)}
+.lang-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:1.25rem}
+.sel-btn{padding:12px 8px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);cursor:pointer;font-family:var(--font);text-align:center;transition:all .15s}
+.sel-btn:hover{background:var(--surface2)}
+.sel-btn.active{border:2px solid var(--accent);background:var(--accent-light)}
+.sel-btn .sel-main{font-size:15px;font-weight:500;color:var(--text)}
+.sel-btn .sel-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.cur-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:1.25rem}
+
+/* SCAN */
+.upload-zone{border:2px dashed var(--border2);border-radius:var(--radius);padding:2rem;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:1rem}
+.upload-zone:hover{border-color:var(--accent);background:var(--accent-light)}
+.upload-icon{font-size:28px;margin-bottom:8px}
+.scan-item-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.scan-item-row:last-child{border:none}
+.scan-item-name{flex:1;min-width:120px;font-size:12px}
+.scan-item-ja{font-size:11px;color:var(--text3)}
+.scan-item-amt{font-size:13px;font-weight:500;white-space:nowrap;min-width:70px;text-align:right}
+.scan-item-cat{min-width:150px}
+.scan-item-cat select{padding:5px 8px;font-size:11px}
+.scan-summary{background:var(--surface2);border-radius:var(--radius-sm);padding:12px;margin-top:10px}
+.scan-summary-row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0}
+.scan-summary-total{font-weight:500;border-top:1px solid var(--border2);padding-top:6px;margin-top:4px;font-size:13px}
+.ai-pulse{display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;text-align:center;margin-bottom:1rem}
+.ai-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1s infinite alternate;margin:0 2px}
+.ai-dot:nth-child(2){animation-delay:.2s}.ai-dot:nth-child(3){animation-delay:.4s}
+@keyframes pulse{from{opacity:.3}to{opacity:1}}
+
+/* CHART */
+.chart-legend{display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+/* DIVIDER */
+.divider{height:1px;background:var(--border);margin:12px 0}
+
+/* PAGE HEADER */
+.page-header{margin-bottom:1.5rem}
+.page-title{font-size:22px;font-weight:400;letter-spacing:-.02em;margin-bottom:3px}
+.page-sub{font-size:13px;color:var(--text3)}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:2.5rem 1rem;color:var(--text3)}
+.empty-icon{font-size:28px;margin-bottom:8px}
+.empty-text{font-size:13px}
+
+/* BANK SECTION */
+.bank-type-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px}
+.bank-type-btn{padding:8px;border:1px solid var(--border2);border-radius:var(--radius-xs);background:var(--surface);cursor:pointer;font-family:var(--font);text-align:center;font-size:12px;transition:all .15s}
+.bank-type-btn:hover{background:var(--surface2)}
+.bank-type-btn.active{border-color:var(--accent);background:var(--accent-light);color:var(--accent);font-weight:500}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px}
+</style>
+</head>
+<body>
+
+<!-- ===== ONBOARDING 1 ===== -->
+<div class="screen active" id="s-onboard">
+  <div class="ob-center">
+    <div class="ob-logo">
+      <div class="ob-kanji">家計簿</div>
+      <div class="ob-title">Kakeibo</div>
+      <div class="ob-sub" id="ob-sub">Control inteligente de ingresos y gastos</div>
+    </div>
+    <div class="card">
+      <div class="card-title" id="ob-lang-lbl">Idioma / Language / 言語</div>
+      <div class="lang-grid">
+        <button class="sel-btn active" onclick="selLang('es',this)"><div class="sel-main">Español</div></button>
+        <button class="sel-btn" onclick="selLang('en',this)"><div class="sel-main">English</div></button>
+        <button class="sel-btn" onclick="selLang('ja',this)"><div class="sel-main">日本語</div></button>
+      </div>
+      <div class="card-title" id="ob-cur-lbl">Moneda principal</div>
+      <div class="cur-grid">
+        <button class="sel-btn" onclick="selCur('JPY',this)"><div class="sel-main">¥</div><div class="sel-sub">Yen · Japón</div></button>
+        <button class="sel-btn" onclick="selCur('PEN',this)"><div class="sel-main">S/</div><div class="sel-sub">Sol · Perú</div></button>
+        <button class="sel-btn" onclick="selCur('MXN',this)"><div class="sel-main">MX$</div><div class="sel-sub">Peso · México</div></button>
+      </div>
+      <button class="btn btn-primary btn-block" id="ob-btn" onclick="goOnboard2()">Continuar →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ONBOARDING 2: PRESUPUESTO ===== -->
+<div class="screen" id="s-budget">
+  <div class="ob-center">
+    <div class="page-header" style="margin-top:1.5rem">
+      <div class="page-title" id="bud-title">Presupuesto mensual</div>
+      <div class="page-sub" id="bud-sub">Opcional — puedes editarlo en cualquier momento</div>
+    </div>
+    <div class="card">
+      <div id="bud-fields"></div>
+      <button class="btn btn-primary btn-block" id="bud-btn" onclick="goLogin()">Continuar →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LOGIN ===== -->
+<div class="screen" id="s-login">
+  <div class="ob-center">
+    <div class="ob-logo">
+      <div class="ob-kanji" style="font-size:32px">家計簿</div>
+      <div class="ob-title" style="font-size:20px">Kakeibo</div>
+    </div>
+    <div class="card">
+      <div class="tabs">
+        <button class="tab active" id="tl-login" onclick="switchAuth('login')">Entrar</button>
+        <button class="tab" id="tl-register" onclick="switchAuth('register')">Crear cuenta</button>
+      </div>
+      <div id="auth-form"></div>
+      <div class="divider"></div>
+      <div style="text-align:center"><button class="btn btn-sm" onclick="demoLogin()" style="color:var(--accent)">Entrar como demo →</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div class="screen" id="s-main">
+  <div class="app-shell">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-kanji">家計簿</div>
+        <div class="brand-name">Kakeibo</div>
+      </div>
+      <button class="nav-item active" id="nav-dashboard" onclick="showMain('dashboard')"><span class="nav-icon">◈</span><span id="nl-dash">Resumen</span></button>
+      <button class="nav-item" id="nav-income" onclick="showMain('income')"><span class="nav-icon">↑</span><span id="nl-income">Ingresos</span></button>
+      <button class="nav-item" id="nav-scan" onclick="showMain('scan')"><span class="nav-icon">⊡</span><span id="nl-scan">Escanear</span></button>
+      <button class="nav-item" id="nav-manual" onclick="showMain('manual')"><span class="nav-icon">＋</span><span id="nl-manual">Gasto manual</span></button>
+      <button class="nav-item" id="nav-bank" onclick="showMain('bank')"><span class="nav-icon">⬡</span><span id="nl-bank">Gastos bancarios</span></button>
+      <button class="nav-item" id="nav-history" onclick="showMain('history')"><span class="nav-icon">≡</span><span id="nl-history">Historial</span></button>
+      <button class="nav-item" id="nav-budgetpage" onclick="showMain('budgetpage')"><span class="nav-icon">◎</span><span id="nl-budget">Presupuesto</span></button>
+      <div class="sidebar-user">
+        <div class="user-row">
+          <div class="user-avatar" id="user-avatar">D</div>
+          <div style="flex:1;min-width:0"><div class="user-name" id="user-name">Demo</div><div class="user-cur" id="user-cur">JPY ¥</div></div>
+          <button class="btn-logout" onclick="logout()" id="btn-logout">↩</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+      <!-- DASHBOARD -->
+      <div id="page-dashboard">
+        <div class="page-header">
+          <div class="page-title" id="d-title">Resumen</div>
+          <div class="page-sub" id="d-greeting"></div>
+        </div>
+        <div class="period-tabs">
+          <button class="ptab active" onclick="setPeriod('week',this)" id="pt-week">Semana</button>
+          <button class="ptab" onclick="setPeriod('month',this)" id="pt-month">Mes</button>
+          <button class="ptab" onclick="setPeriod('quarter',this)" id="pt-quarter">Trimestre</button>
+          <button class="ptab" onclick="setPeriod('year',this)" id="pt-year">Año</button>
+        </div>
+        <div id="dash-alert"></div>
+        <div class="metric-grid grid4" id="dash-metrics"></div>
+        <div class="card">
+          <div class="card-title" id="d-flow-lbl">Flujo mensual — ingresos vs gastos</div>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#639922"></div><span id="leg-inc">Ingresos</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#E24B4A"></div><span id="leg-exp">Gastos</span></div>
+          </div>
+          <div style="position:relative;height:180px"><canvas id="flow-chart" role="img" aria-label="Gráfico de flujo mensual ingresos vs gastos">Flujo mensual.</canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="d-cats-lbl">Gastos por categoría</div>
+          <div id="d-cats"></div>
+        </div>
+      </div>
+
+      <!-- INCOME -->
+      <div id="page-income" style="display:none">
+        <div class="page-header">
+          <div class="page-title" id="inc-page-title">Ingresos</div>
+          <div class="page-sub" id="inc-page-sub">Registra todas tus fuentes de ingreso</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="inc-form-title">Nuevo ingreso</div>
+          <div class="form-row form-2">
+            <div class="form-group"><label id="inc-l-desc">Fuente / Descripción</label><input type="text" id="inc-desc" placeholder="Ej: Salario, Freelance, Remesa..."></div>
+            <div class="form-group"><label id="inc-l-amt">Monto</label><input type="number" id="inc-amt" placeholder="0" min="0"></div>
+          </div>
+          <div class="form-row form-3">
+            <div class="form-group"><label id="inc-l-date">Fecha de cobro</label><input type="date" id="inc-date"></div>
+            <div class="form-group">
+              <label id="inc-l-type">Tipo de ingreso</label>
+              <select id="inc-type">
+                <option value="fijo">Trabajo fijo</option>
+                <option value="part">Part-time</option>
+                <option value="freelance">Freelance / Independiente</option>
+                <option value="remesa">Remesa familiar</option>
+                <option value="desempleo">Seguro de desempleo</option>
+                <option value="pension">Pensión / Jubilación</option>
+                <option value="otro">Otro</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label id="inc-l-freq">Frecuencia</label>
+              <select id="inc-freq">
+                <option value="unico">Único (no se repite)</option>
+                <option value="diario">Diario</option>
+                <option value="semanal">Semanal</option>
+                <option value="quincenal">Quincenal</option>
+                <option value="mensual" selected>Mensual</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group"><label id="inc-l-note">Nota (opcional)</label><textarea id="inc-note" rows="2"></textarea></div>
+          <button class="btn btn-primary btn-block" onclick="addIncome()" id="inc-btn">Registrar ingreso</button>
+        </div>
+        <div id="inc-equiv-note" style="display:none" class="alert alert-info"></div>
+        <div class="card-title" id="inc-hist-lbl" style="margin-top:.5rem">Historial de ingresos</div>
+        <div id="inc-list"></div>
+      </div>
+
+      <!-- SCAN -->
+      <div id="page-scan" style="display:none">
+        <div class="page-header">
+          <div class="page-title" id="scan-page-title">Escanear recibo</div>
+          <div class="page-sub" id="scan-page-sub">IA detecta ítems individualmente y sugiere categoría</div>
+        </div>
+        <div class="upload-zone" id="upload-zone" onclick="triggerFileInput()" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
+          <div class="upload-icon">📷</div>
+          <div style="font-size:14px;font-weight:500;margin-bottom:4px" id="scan-title">Toca para fotografiar o cargar recibo</div>
+          <div style="font-size:12px;color:var(--text3)" id="scan-sub">Japonés · Español · Inglés — レシート対応</div>
+        </div>
+        <input type="file" id="receipt-input" accept="image/*" capture="environment" style="display:none" onchange="handleFileSelect(event)">
+        <div style="display:flex;gap:8px;margin-bottom:1rem">
+          <button class="btn" style="flex:1" onclick="triggerFileInput()">📷 Cámara / Archivo</button>
+          <button class="btn" style="flex:1" id="btn-demo-scan" onclick="startDemoScan()">✦ Demo (sin imagen)</button>
+        </div>
+        <div id="scan-preview" style="display:none;margin-bottom:1rem">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
+            <img id="scan-thumb" style="width:48px;height:48px;object-fit:cover;border-radius:6px" src="" alt="preview">
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:500" id="scan-filename">recibo.jpg</div>
+              <div style="font-size:11px;color:var(--text3)" id="scan-filesize"></div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="analyzeReceipt()">Analizar con IA ✦</button>
+          </div>
+        </div>
+        <div class="ai-pulse" id="ai-loading">
+          <div style="margin-bottom:8px"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span></div>
+          <div style="font-size:13px;color:var(--text2)" id="ai-load-txt">Analizando recibo con IA...</div>
+        </div>
+        <div id="scan-result-area"></div>
+      </div>
+
+      <!-- MANUAL EXPENSE -->
+      <div id="page-manual" style="display:none">
+        <div class="page-header">
+          <div class="page-title" id="man-page-title">Agregar gasto</div>
+        </div>
+        <div class="card">
+          <div class="form-row form-2">
+            <div class="form-group"><label id="man-l-desc">Descripción</label><input type="text" id="man-desc" placeholder="Ej: Recibo de agua, Supermercado..."></div>
+            <div class="form-group"><label id="man-l-amt">Monto</label><input type="number" id="man-amt" placeholder="0" min="0"></div>
+          </div>
+          <div class="form-row form-2">
+            <div class="form-group"><label id="man-l-date">Fecha</label><input type="date" id="man-date"></div>
+            <div class="form-group"><label id="man-l-cat">Categoría</label><select id="man-cat"></select></div>
+          </div>
+          <div class="form-group"><label id="man-l-note">Nota (opcional)</label><textarea id="man-note" rows="2"></textarea></div>
+          <button class="btn btn-primary btn-block" onclick="addManual()" id="man-btn">Registrar gasto</button>
+        </div>
+      </div>
+
+      <!-- BANK EXPENSES -->
+      <div id="page-bank" style="display:none">
+        <div class="page-header">
+          <div class="page-title" id="bank-page-title">Gastos bancarios</div>
+          <div class="page-sub" id="bank-page-sub">Cargos automáticos, débitos y tarjeta de crédito</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="bank-type-lbl">Tipo de cargo bancario</div>
+          <div class="bank-type-grid">
+            <button class="bank-type-btn active" id="bt-servicio" onclick="selBankType('servicio',this)">
+              <div style="font-size:16px;margin-bottom:4px">💡</div>
+              <div>Servicio debitado</div>
+            </button>
+            <button class="bank-type-btn" id="bt-tarjeta" onclick="selBankType('tarjeta',this)">
+              <div style="font-size:16px;margin-bottom:4px">💳</div>
+              <div>Pago tarjeta de crédito</div>
+            </button>
+            <button class="bank-type-btn" id="bt-comision" onclick="selBankType('comision',this)">
+              <div style="font-size:16px;margin-bottom:4px">🏦</div>
+              <div>Comisión / Cargo bancario</div>
+            </button>
+          </div>
+          <div id="bank-form-area"></div>
+        </div>
+        <div class="card-title" id="bank-hist-lbl" style="margin-top:.25rem">Historial bancario</div>
+        <div id="bank-list"></div>
+      </div>
+
+      <!-- HISTORY -->
+      <div id="page-history" style="display:none">
+        <div class="page-header">
+          <div class="page-title" id="hist-page-title">Historial</div>
+        </div>
+        <div class="tabs">
+          <button class="tab active" id="htab-exp" onclick="switchHTab('exp')">Gastos</button>
+          <button class="tab" id="htab-inc" onclick="switchHTab('inc')">Ingresos</button>
+          <button class="tab" id="htab-bank" onclick="switchHTab('bank')">Bancarios</button>
+        </div>
+        <div class="form-group" id="hist-filter-wrap"><select id="hist-filter" onchange="renderHistory()"></select></div>
+        <div id="hist-list"></div>
+      </div>
+
+      <!-- BUDGET PAGE -->
+      <div id="page-budgetpage" style="display:none">
+        <div class="page-header">
+          <div class="page-title" id="bud-page-title">Presupuesto mensual</div>
+          <div class="page-sub" id="bud-page-sub">Seguimiento de gastos vs límites configurados</div>
+        </div>
+        <div id="bud-alerts"></div>
+        <div class="card" id="bud-progress-card">
+          <div class="card-title" id="bud-prog-lbl">Progreso del mes</div>
+          <div id="bud-progress"></div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="bud-edit-lbl">Editar límites de presupuesto</div>
+          <div id="bud-edit-fields"></div>
+          <button class="btn btn-primary btn-block" onclick="saveBudgets()" id="bud-save-btn">Guardar cambios</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script>
+// ===== DATA =====
+const CURRENCIES={
+  JPY:{sym:'¥',dec:0,locale:'ja-JP'},
+  PEN:{sym:'S/',dec:2,locale:'es-PE'},
+  MXN:{sym:'MX$',dec:2,locale:'es-MX'},
+};
+const CATS=[
+  {id:'servicios',icon:'💡',tipo:'fijo',color:'#185FA5',bg:'#E6F1FB',label:{es:'Servicios',en:'Utilities',ja:'公共料金'}},
+  {id:'renta',icon:'🏠',tipo:'fijo',color:'#3B6D11',bg:'#EAF3DE',label:{es:'Renta / Hipoteca',en:'Rent / Mortgage',ja:'家賃'}},
+  {id:'tarjeta_credito',icon:'💳',tipo:'fijo',color:'#72243E',bg:'#FBEAF0',label:{es:'Pago tarjeta de crédito',en:'Credit card payment',ja:'クレジットカード'}},
+  {id:'limp_p',icon:'✨',tipo:'variable',color:'#993556',bg:'#FBEAF0',label:{es:'Limpieza personal / Skin care',en:'Personal care / Skin care',ja:'パーソナルケア'}},
+  {id:'limp_h',icon:'🧹',tipo:'variable',color:'#0F6E56',bg:'#E1F5EE',label:{es:'Limpieza del hogar',en:'Home cleaning',ja:'日用品'}},
+  {id:'comida',icon:'🛒',tipo:'variable',color:'#639922',bg:'#EAF3DE',label:{es:'Comida',en:'Groceries',ja:'食料品'}},
+  {id:'hormiga',icon:'🐜',tipo:'variable',color:'#BA7517',bg:'#FAEEDA',label:{es:'Gastos hormiga',en:'Small expenses',ja:'細かい出費'}},
+  {id:'movilidad',icon:'🚃',tipo:'variable',color:'#534AB7',bg:'#EEEDFE',label:{es:'Movilidad',en:'Transport',ja:'交通費'}},
+  {id:'regalo',icon:'🎁',tipo:'variable',color:'#D85A30',bg:'#FAECE7',label:{es:'Regalos / Terceras personas',en:'Gifts / Others',ja:'プレゼント'}},
+  {id:'bancario',icon:'🏦',tipo:'variable',color:'#3C3489',bg:'#EEEDFE',label:{es:'Gastos bancarios',en:'Bank charges',ja:'銀行手数料'}},
+];
+const INC_TYPES={
+  fijo:{es:'Trabajo fijo',en:'Full-time',ja:'正社員'},
+  part:{es:'Part-time',en:'Part-time',ja:'パートタイム'},
+  freelance:{es:'Freelance',en:'Freelance',ja:'フリーランス'},
+  remesa:{es:'Remesa familiar',en:'Remittance',ja:'仕送り'},
+  desempleo:{es:'Seguro de desempleo',en:'Unemployment',ja:'失業給付'},
+  pension:{es:'Pensión / Jubilación',en:'Pension',ja:'年金'},
+  otro:{es:'Otro',en:'Other',ja:'その他'},
+};
+const FREQS={
+  unico:{es:'Único',en:'One-time',ja:'一回のみ',mult:1,recurring:false},
+  diario:{es:'Diario',en:'Daily',ja:'毎日',mult:30,recurring:true},
+  semanal:{es:'Semanal',en:'Weekly',ja:'毎週',mult:4.3,recurring:true},
+  quincenal:{es:'Quincenal',en:'Bi-weekly',ja:'隔週',mult:2,recurring:true},
+  mensual:{es:'Mensual',en:'Monthly',ja:'毎月',mult:1,recurring:true},
+};
+const BANK_TYPES={
+  servicio:{es:'Servicio debitado',en:'Debited service',ja:'口座振替',icon:'💡',color:'#185FA5',bg:'#E6F1FB'},
+  tarjeta:{es:'Pago tarjeta de crédito',en:'Credit card payment',ja:'クレジット引落',icon:'💳',color:'#72243E',bg:'#FBEAF0'},
+  comision:{es:'Comisión bancaria',en:'Bank fee',ja:'手数料',icon:'🏦',color:'#3C3489',bg:'#EEEDFE'},
+};
+
+const T={
+  es:{
+    onboard_sub:'Control inteligente de ingresos y gastos',cur_lbl:'Moneda principal',lang_lbl:'Idioma',
+    next:'Continuar →',enter:'Entrar',register:'Crear cuenta',email:'Correo electrónico',pass:'Contraseña',name:'Nombre completo',
+    dash:'Resumen',income:'Ingresos',scan:'Escanear',manual:'Gasto manual',bank:'Gastos bancarios',history:'Historial',budget:'Presupuesto',logout:'Salir',
+    total_inc:'Ingresos',total_exp:'Gastos',balance_lbl:'Disponible',fijos_lbl:'Gastos fijos',
+    week:'Semana',month:'Mes',quarter:'Trimestre',year:'Año',
+    wk:'Esta semana',mo:'Este mes',qt:'Este trimestre',yr:'Este año',
+    surplus:'sobrante',deficit:'déficit',
+    flow_lbl:'Flujo mensual — ingresos vs gastos',cats_lbl:'Gastos por categoría',
+    inc_lbl:'Ingresos',exp_lbl:'Gastos',
+    alert_danger:'⚠ Tus gastos superan tus ingresos este mes.',
+    alert_ok:'✓ Tus finanzas están en orden este mes.',
+    inc_page:'Ingresos',inc_page_sub:'Registra todas tus fuentes de ingreso',
+    inc_form:'Nuevo ingreso',inc_l_desc:'Fuente / Descripción',inc_l_amt:'Monto',
+    inc_l_date:'Fecha de cobro',inc_l_type:'Tipo de ingreso',inc_l_freq:'Frecuencia',inc_l_note:'Nota (opcional)',
+    inc_btn:'Registrar ingreso',inc_hist:'Historial de ingresos',inc_equiv:'Equivalente mensual aprox.',
+    scan_title:'Toca para fotografiar o cargar recibo',scan_sub:'Japonés · Español · Inglés — レシート対応',
+    scan_page:'Escanear recibo',scan_page_sub:'IA detecta ítems individualmente y sugiere categoría',
+    demo_scan:'Simular recibo japonés (コンビニ)',analyzing:'Analizando recibo con IA...',
+    scan_items:'Ítems detectados',scan_tax:'IVA / Consumo',scan_total:'Total',
+    scan_cat_lbl:'Categoría por ítem',scan_date_lbl:'Fecha del recibo',
+    scan_confirm:'Registrar todos los ítems',scan_registered:'ítems registrados',
+    man_page:'Agregar gasto',man_l_desc:'Descripción',man_l_amt:'Monto',man_l_date:'Fecha',man_l_cat:'Categoría',man_l_note:'Nota (opcional)',man_btn:'Registrar gasto',
+    bank_page:'Gastos bancarios',bank_page_sub:'Cargos automáticos, débitos y tarjeta de crédito',
+    bank_type_lbl:'Tipo de cargo bancario',bank_hist:'Historial bancario',
+    bank_l_desc:'Descripción del cargo',bank_l_amt:'Monto debitado',bank_l_date:'Fecha del cargo',
+    bank_l_card:'Nombre de la tarjeta / banco',bank_l_note:'Nota (opcional)',bank_btn:'Registrar cargo bancario',
+    bank_l_cat:'Categoría del servicio',
+    hist_page:'Historial',all_cats:'Todas las categorías',
+    bud_page:'Presupuesto mensual',bud_page_sub:'Seguimiento de gastos vs límites configurados',
+    bud_prog:'Progreso del mes',bud_edit:'Editar límites',bud_save:'Guardar cambios',bud_over:'Presupuesto excedido en',
+    fijo:'fijo',variable:'variable',registered:'registrado',
+    no_data:'Sin registros en este período',
+  },
+  en:{
+    onboard_sub:'Smart income & expense tracker',cur_lbl:'Primary currency',lang_lbl:'Language',
+    next:'Continue →',enter:'Log in',register:'Create account',email:'Email address',pass:'Password',name:'Full name',
+    dash:'Summary',income:'Income',scan:'Scan',manual:'Add expense',bank:'Bank charges',history:'History',budget:'Budget',logout:'Log out',
+    total_inc:'Income',total_exp:'Expenses',balance_lbl:'Available',fijos_lbl:'Fixed expenses',
+    week:'Week',month:'Month',quarter:'Quarter',year:'Year',
+    wk:'This week',mo:'This month',qt:'This quarter',yr:'This year',
+    surplus:'surplus',deficit:'deficit',
+    flow_lbl:'Monthly flow — income vs expenses',cats_lbl:'Expenses by category',
+    inc_lbl:'Income',exp_lbl:'Expenses',
+    alert_danger:'⚠ Your expenses exceed your income this month.',
+    alert_ok:'✓ Your finances look good this month.',
+    inc_page:'Income',inc_page_sub:'Track all your income sources',
+    inc_form:'New income',inc_l_desc:'Source / Description',inc_l_amt:'Amount',
+    inc_l_date:'Payment date',inc_l_type:'Income type',inc_l_freq:'Frequency',inc_l_note:'Note (optional)',
+    inc_btn:'Add income',inc_hist:'Income history',inc_equiv:'Monthly equivalent (approx.)',
+    scan_title:'Tap to photograph or upload receipt',scan_sub:'Japanese · Spanish · English — レシート対応',
+    scan_page:'Scan receipt',scan_page_sub:'AI detects items individually and suggests category',
+    demo_scan:'Simulate Japanese receipt (コンビニ)',analyzing:'Analyzing receipt with AI...',
+    scan_items:'Items detected',scan_tax:'Tax / Consumption',scan_total:'Total',
+    scan_cat_lbl:'Category per item',scan_date_lbl:'Receipt date',
+    scan_confirm:'Record all items',scan_registered:'items recorded',
+    man_page:'Add expense',man_l_desc:'Description',man_l_amt:'Amount',man_l_date:'Date',man_l_cat:'Category',man_l_note:'Note (optional)',man_btn:'Add expense',
+    bank_page:'Bank charges',bank_page_sub:'Automatic debits, charges and credit card',
+    bank_type_lbl:'Type of bank charge',bank_hist:'Bank history',
+    bank_l_desc:'Charge description',bank_l_amt:'Amount debited',bank_l_date:'Charge date',
+    bank_l_card:'Card / bank name',bank_l_note:'Note (optional)',bank_btn:'Record bank charge',
+    bank_l_cat:'Service category',
+    hist_page:'History',all_cats:'All categories',
+    bud_page:'Monthly budget',bud_page_sub:'Track spending vs configured limits',
+    bud_prog:'Month progress',bud_edit:'Edit limits',bud_save:'Save changes',bud_over:'Over budget by',
+    fijo:'fixed',variable:'variable',registered:'recorded',
+    no_data:'No records for this period',
+  },
+  ja:{
+    onboard_sub:'収支を賢く管理するアプリ',cur_lbl:'主要通貨',lang_lbl:'言語',
+    next:'次へ →',enter:'ログイン',register:'アカウント作成',email:'メールアドレス',pass:'パスワード',name:'名前',
+    dash:'サマリー',income:'収入',scan:'スキャン',manual:'支出追加',bank:'銀行引落',history:'履歴',budget:'予算',logout:'ログアウト',
+    total_inc:'収入',total_exp:'支出',balance_lbl:'残高',fijos_lbl:'固定費',
+    week:'週',month:'月',quarter:'四半期',year:'年',
+    wk:'今週',mo:'今月',qt:'今四半期',yr:'今年',
+    surplus:'黒字',deficit:'赤字',
+    flow_lbl:'月次キャッシュフロー',cats_lbl:'カテゴリ別支出',
+    inc_lbl:'収入',exp_lbl:'支出',
+    alert_danger:'⚠ 今月の支出が収入を超えています。',
+    alert_ok:'✓ 今月の家計は順調です。',
+    inc_page:'収入',inc_page_sub:'すべての収入源を記録',
+    inc_form:'新規収入',inc_l_desc:'収入源',inc_l_amt:'金額',
+    inc_l_date:'入金日',inc_l_type:'収入の種類',inc_l_freq:'頻度',inc_l_note:'メモ（任意）',
+    inc_btn:'収入を登録',inc_hist:'収入履歴',inc_equiv:'月換算（概算）',
+    scan_title:'タップしてレシートを撮影またはアップロード',scan_sub:'日本語・スペイン語・英語対応',
+    scan_page:'レシートスキャン',scan_page_sub:'AIが品目ごとにカテゴリを提案',
+    demo_scan:'日本語レシートをシミュレート',analyzing:'AIでレシートを分析中...',
+    scan_items:'検出されたアイテム',scan_tax:'消費税',scan_total:'合計',
+    scan_cat_lbl:'品目別カテゴリ',scan_date_lbl:'レシートの日付',
+    scan_confirm:'全品目を登録',scan_registered:'件を登録しました',
+    man_page:'支出を追加',man_l_desc:'説明',man_l_amt:'金額',man_l_date:'日付',man_l_cat:'カテゴリ',man_l_note:'メモ（任意）',man_btn:'支出を登録',
+    bank_page:'銀行引落',bank_page_sub:'口座振替・クレジットカード引落',
+    bank_type_lbl:'引落の種類',bank_hist:'銀行引落履歴',
+    bank_l_desc:'引落の説明',bank_l_amt:'引落金額',bank_l_date:'引落日',
+    bank_l_card:'カード名・銀行名',bank_l_note:'メモ（任意）',bank_btn:'引落を登録',
+    bank_l_cat:'サービスカテゴリ',
+    hist_page:'履歴',all_cats:'全カテゴリ',
+    bud_page:'月間予算',bud_page_sub:'支出と予算の進捗管理',
+    bud_prog:'今月の進捗',bud_edit:'予算を編集',bud_save:'保存',bud_over:'超過',
+    fijo:'固定',variable:'変動',registered:'登録',
+    no_data:'この期間にデータがありません',
+  }
+};
+
+// ===== STATE =====
+let lang='es', cur='JPY', period='month', histTab='exp', bankType='servicio';
+let users={}, currentUser=null, budgets={}, expenses=[], incomes=[], bankExpenses=[];
+let flowChart=null;
+
+// ===== HELPERS =====
+const t=k=>(T[lang]||T.es)[k]||k;
+function fmt(n){
+  const c=CURRENCIES[cur];
+  const r=c.dec===0?Math.round(n):parseFloat(n).toFixed(c.dec);
+  return c.sym+Number(r).toLocaleString(c.locale||'es-MX');
+}
+const cl=id=>document.getElementById(id);
+const catLabel=c=>c.label[lang]||c.label.es;
+const getCat=id=>CATS.find(c=>c.id===id);
+const incTypeLabel=id=>{const x=INC_TYPES[id];return x?(x[lang]||x.es):id;};
+const freqLabel=id=>{const x=FREQS[id];return x?(x[lang]||x.es):id;};
+const monthlyEquiv=(amt,freq)=>amt*(FREQS[freq]?.mult||1);
+const today=()=>new Date().toISOString().split('T')[0];
+const saveUser=()=>{if(currentUser&&users[currentUser]){users[currentUser].expenses=expenses;users[currentUser].incomes=incomes;users[currentUser].bankExpenses=bankExpenses;users[currentUser].budgets=budgets;}};
+
+// ===== ONBOARDING =====
+function selLang(l,el){lang=l;document.querySelectorAll('.lang-grid .sel-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+function selCur(c,el){cur=c;document.querySelectorAll('.cur-grid .sel-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+
+function goOnboard2(){
+  if(!cur){alert('Selecciona una moneda');return;}
+  showScreen('s-budget');
+  cl('bud-title').textContent=t('bud_page');
+  cl('bud-sub').textContent=t('bud_page_sub');
+  cl('bud-btn').textContent=t('next');
+  cl('bud-fields').innerHTML=CATS.map(c=>`
+    <div class="form-group"><label>${c.icon} ${catLabel(c)} <span class="badge badge-${c.tipo==='fijo'?'fixed':'variable'}">${t(c.tipo==='fijo'?'fijo':'variable')}</span></label>
+    <input type="number" id="bud-${c.id}" placeholder="${CURRENCIES[cur].sym}0" min="0"></div>`).join('');
+}
+
+function goLogin(){
+  CATS.forEach(c=>{budgets[c.id]=parseFloat(cl('bud-'+c.id)?.value)||0;});
+  showScreen('s-login');renderAuthForm('login');
+}
+
+// ===== AUTH =====
+function switchAuth(m){
+  cl('tl-login').classList.toggle('active',m==='login');
+  cl('tl-register').classList.toggle('active',m==='register');
+  renderAuthForm(m);
+}
+function renderAuthForm(m){
+  cl('auth-form').innerHTML=m==='register'?`
+    <div class="form-group"><label>${t('name')}</label><input type="text" id="a-name"></div>
+    <div class="form-group"><label>${t('email')}</label><input type="email" id="a-email"></div>
+    <div class="form-group"><label>${t('pass')}</label><input type="password" id="a-pass"></div>
+    <button class="btn btn-primary btn-block" onclick="doRegister()">${t('register')}</button>`:`
+    <div class="form-group"><label>${t('email')}</label><input type="email" id="a-email" placeholder="correo@ejemplo.com"></div>
+    <div class="form-group"><label>${t('pass')}</label><input type="password" id="a-pass"></div>
+    <button class="btn btn-primary btn-block" onclick="doLogin()">${t('enter')}</button>`;
+}
+
+function doRegister(){
+  const name=cl('a-name')?.value.trim(),email=cl('a-email').value.trim(),pass=cl('a-pass').value;
+  if(!name||!email||!pass){alert('Completa todos los campos');return;}
+  if(users[email]){alert('Correo ya registrado');return;}
+  users[email]={name,pass,budgets:{...budgets},expenses:[],incomes:[],bankExpenses:[],lang,cur};
+  currentUser=email;initMain();
+}
+function doLogin(){
+  const email=cl('a-email').value.trim(),pass=cl('a-pass').value;
+  if(!users[email]||users[email].pass!==pass){alert('Credenciales incorrectas');return;}
+  currentUser=email;
+  lang=users[email].lang||lang;cur=users[email].cur||cur;
+  budgets=users[email].budgets||{};expenses=users[email].expenses||[];
+  incomes=users[email].incomes||[];bankExpenses=users[email].bankExpenses||[];
+  initMain();
+}
+
+function demoLogin(){
+  const email='demo@kakeibo.app';
+  const m=cur==='JPY'?1:cur==='MXN'?0.13:0.01;
+  if(!users[email]){
+    const b={servicios:Math.round(6000*m),renta:Math.round(80000*m),tarjeta_credito:Math.round(15000*m),limp_p:Math.round(3000*m),limp_h:Math.round(2000*m),comida:Math.round(25000*m),hormiga:Math.round(8000*m),movilidad:Math.round(6000*m),regalo:Math.round(4000*m)};
+    const exp=[
+      {desc:'Internet fibra',cat:'servicios',amt:Math.round(4500*m),date:'2026-04-05',note:''},
+      {desc:'Renta departamento',cat:'renta',amt:Math.round(80000*m),date:'2026-04-01',note:''},
+      {desc:'Aceite facial DHC',cat:'limp_p',amt:Math.round(1980*m),date:'2026-04-07',note:'Skin care'},
+      {desc:'Suica チャージ',cat:'movilidad',amt:Math.round(3000*m),date:'2026-04-08',note:''},
+      {desc:'Café Doutor',cat:'hormiga',amt:Math.round(480*m),date:'2026-04-09',note:''},
+      {desc:'OK Store compra semanal',cat:'comida',amt:Math.round(7200*m),date:'2026-04-06',note:''},
+      {desc:'Regalo cumpleaños Ana',cat:'regalo',amt:Math.round(3500*m),date:'2026-04-03',note:''},
+      {desc:'Limpiador multiusos',cat:'limp_h',amt:Math.round(398*m),date:'2026-04-04',note:''},
+      {desc:'7-Eleven',cat:'hormiga',amt:Math.round(1082*m),date:'2026-04-02',note:''},
+      {desc:'Bus Yokohama',cat:'movilidad',amt:Math.round(220*m),date:'2026-04-09',note:''},
+      {desc:'Luz eléctrica',cat:'servicios',amt:Math.round(3200*m),date:'2026-03-28',note:''},
+      {desc:'Restaurante sushi',cat:'hormiga',amt:Math.round(2200*m),date:'2026-03-30',note:''},
+      {desc:'Supermercado marzo',cat:'comida',amt:Math.round(18000*m),date:'2026-03-20',note:''},
+    ];
+    const inc=[
+      {desc:'Salario empresa',type:'fijo',freq:'mensual',amt:Math.round(280000*m),date:'2026-04-25',note:''},
+      {desc:'Clases en línea',type:'part',freq:'semanal',amt:Math.round(8000*m),date:'2026-04-07',note:'Inglés'},
+      {desc:'Remesa familia',type:'remesa',freq:'mensual',amt:Math.round(20000*m),date:'2026-04-10',note:''},
+      {desc:'Salario empresa',type:'fijo',freq:'mensual',amt:Math.round(280000*m),date:'2026-03-25',note:''},
+      {desc:'Freelance diseño',type:'freelance',freq:'unico',amt:Math.round(35000*m),date:'2026-03-15',note:'Logo proyecto'},
+    ];
+    const bank=[
+      {desc:'Netflix',bankType:'servicio',cat:'servicios',cardName:'VISA Banamex',amt:Math.round(1990*m),date:'2026-04-03',note:''},
+      {desc:'Spotify Premium',bankType:'servicio',cat:'servicios',cardName:'VISA Banamex',amt:Math.round(990*m),date:'2026-04-03',note:''},
+      {desc:'Pago mínimo VISA',bankType:'tarjeta',cat:'tarjeta_credito',cardName:'VISA Banamex',amt:Math.round(12000*m),date:'2026-04-18',note:'Pago total'},
+      {desc:'Comisión mantenimiento',bankType:'comision',cat:'bancario',cardName:'SMBC Prestia',amt:Math.round(550*m),date:'2026-04-01',note:''},
+    ];
+    users[email]={name:'Demo',pass:'demo',lang,cur,budgets:b,expenses:exp,incomes:inc,bankExpenses:bank};
+  }
+  currentUser=email;lang=users[email].lang||lang;cur=users[email].cur||cur;
+  budgets=users[email].budgets||{};expenses=users[email].expenses||[];
+  incomes=users[email].incomes||[];bankExpenses=users[email].bankExpenses||[];
+  initMain();
+}
+
+// ===== INIT MAIN =====
+function initMain(){
+  showScreen('s-main');
+  const u=users[currentUser];
+  cl('user-avatar').textContent=(u.name||'?')[0].toUpperCase();
+  cl('user-name').textContent=u.name;
+  cl('user-cur').textContent=cur+' '+CURRENCIES[cur].sym;
+  cl('btn-logout').title=t('logout');
+  updateNavLabels();
+  buildCatSelect('man-cat');
+  buildHistFilter();
+  cl('man-date').value=today();
+  cl('inc-date').value=today();
+  updateFormLabels();
+  renderBankForm();
+  showMain('dashboard');
+}
+
+function updateNavLabels(){
+  const keys={dashboard:'dash',income:'income',scan:'scan',manual:'manual',bank:'bank',history:'history',budgetpage:'budget'};
+  Object.entries(keys).forEach(([page,tk])=>{const el=cl('nl-'+page);if(el)el.textContent=t(tk);});
+  cl('pt-week').textContent=t('week');cl('pt-month').textContent=t('month');
+  cl('pt-quarter').textContent=t('quarter');cl('pt-year').textContent=t('year');
+  cl('leg-inc').textContent=t('inc_lbl');cl('leg-exp').textContent=t('exp_lbl');
+}
+
+function updateFormLabels(){
+  // income
+  cl('inc-page-title').textContent=t('inc_page');cl('inc-page-sub').textContent=t('inc_page_sub');
+  cl('inc-form-title').textContent=t('inc_form');
+  ['desc','amt','date','type','freq','note'].forEach(k=>{const el=cl('inc-l-'+k);if(el)el.textContent=t('inc_l_'+k);});
+  cl('inc-btn').textContent=t('inc_btn');cl('inc-hist-lbl').textContent=t('inc_hist');
+  // scan
+  cl('scan-page-title').textContent=t('scan_page');cl('scan-page-sub').textContent=t('scan_page_sub');
+  cl('scan-title').textContent=t('scan_title');cl('scan-sub').textContent=t('scan_sub');
+  cl('btn-demo-scan').textContent=t('demo_scan');cl('ai-load-txt').textContent=t('analyzing');
+  // manual
+  cl('man-page-title').textContent=t('man_page');
+  ['desc','amt','date','cat','note'].forEach(k=>{const el=cl('man-l-'+k);if(el)el.textContent=t('man_l_'+k);});
+  cl('man-btn').textContent=t('man_btn');
+  // bank
+  cl('bank-page-title').textContent=t('bank_page');cl('bank-page-sub').textContent=t('bank_page_sub');
+  cl('bank-type-lbl').textContent=t('bank_type_lbl');cl('bank-hist-lbl').textContent=t('bank_hist');
+  // history
+  cl('hist-page-title').textContent=t('hist_page');
+  // budget
+  cl('bud-page-title').textContent=t('bud_page');cl('bud-page-sub').textContent=t('bud_page_sub');
+  cl('bud-prog-lbl').textContent=t('bud_prog');cl('bud-edit-lbl').textContent=t('bud_edit');
+  cl('bud-save-btn').textContent=t('bud_save');
+  // dashboard
+  cl('d-flow-lbl').textContent=t('flow_lbl');cl('d-cats-lbl').textContent=t('cats_lbl');
+  cl('d-title').textContent=t('dash');
+}
+
+function buildCatSelect(id){
+  cl(id).innerHTML=CATS.map(c=>`<option value="${c.id}">${c.icon} ${catLabel(c)}</option>`).join('');
+}
+function buildHistFilter(){
+  cl('hist-filter').innerHTML=`<option value="all">${t('all_cats')}</option>`+
+    CATS.map(c=>`<option value="${c.id}">${c.icon} ${catLabel(c)}</option>`).join('');
+}
+
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));cl(id).classList.add('active');}
+
+function showMain(page){
+  const pages=['dashboard','income','scan','manual','bank','history','budgetpage'];
+  pages.forEach(p=>{const el=cl('page-'+p);if(el)el.style.display=p===page?'block':'none';});
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  const nav=cl('nav-'+page);if(nav)nav.classList.add('active');
+  if(page==='dashboard')renderDashboard();
+  if(page==='income')renderIncomeList();
+  if(page==='bank'){renderBankForm();renderBankList();}
+  if(page==='history')renderHistory();
+  if(page==='budgetpage')renderBudgetPage();
+}
+
+function logout(){saveUser();currentUser=null;expenses=[];incomes=[];bankExpenses=[];budgets={};showScreen('s-login');}
+
+// ===== PERIOD FILTER =====
+function getByPeriod(arr,p,dk='date'){
+  const now=new Date();
+  return arr.filter(e=>{
+    const d=new Date(e[dk]);
+    if(p==='week') return (now-d)/86400000<7&&d<=now;
+    if(p==='month') return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+    if(p==='quarter') return Math.floor(d.getMonth()/3)===Math.floor(now.getMonth()/3)&&d.getFullYear()===now.getFullYear();
+    if(p==='year') return d.getFullYear()===now.getFullYear();
+    return true;
+  });
+}
+
+// ===== DASHBOARD =====
+function getMonthlyIncome(){
+  const now=new Date();
+  return incomes.filter(i=>FREQS[i.freq]?.recurring||(()=>{const d=new Date(i.date);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();})())
+    .reduce((s,i)=>s+monthlyEquiv(i.amt,i.freq),0);
+}
+
+function setPeriod(p,el){
+  period=p;document.querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderDashboard();
+}
+
+function renderDashboard(){
+  const allExp=[...expenses,...bankExpenses.map(b=>({...b,cat:b.cat||'bancario'}))];
+  const pExp=getByPeriod(allExp,period);
+  const totalExp=pExp.reduce((s,e)=>s+e.amt,0);
+  let fijo=0; const byCat={};
+  pExp.forEach(e=>{
+    const c=getCat(e.cat);
+    if(c?.tipo==='fijo') fijo+=e.amt;
+    byCat[e.cat]=(byCat[e.cat]||0)+e.amt;
+  });
+  const mInc=getMonthlyIncome();
+  const pFactor={week:1/4.3,month:1,quarter:3,year:12};
+  const periodInc=mInc*(pFactor[period]||1);
+  const bal=periodInc-totalExp;
+  const pLbls={week:t('wk'),month:t('mo'),quarter:t('qt'),year:t('yr')};
+
+  cl('d-greeting').textContent=pLbls[period];
+  cl('dash-metrics').innerHTML=`
+    <div class="metric income"><div class="metric-label">${t('total_inc')}</div><div class="metric-val" style="color:var(--income-color)">${fmt(periodInc)}</div><div class="metric-sub">${pLbls[period]}</div></div>
+    <div class="metric expense"><div class="metric-label">${t('total_exp')}</div><div class="metric-val" style="color:var(--expense-color)">${fmt(totalExp)}</div><div class="metric-sub">${periodInc>0?Math.round(totalExp/periodInc*100)+'% del ingreso':'—'}</div></div>
+    <div class="metric"><div class="metric-label">${t('fijos_lbl')}</div><div class="metric-val">${fmt(fijo)}</div><div class="metric-sub">${totalExp>0?Math.round(fijo/totalExp*100)+'%':'—'}</div></div>
+    <div class="metric ${bal>=0?'balance-pos':'balance-neg'}"><div class="metric-label">${t('balance_lbl')}</div><div class="metric-val" style="color:${bal>=0?'#085041':'var(--warn-color)'}">${fmt(Math.abs(bal))}</div><div class="metric-sub">${bal>=0?t('surplus'):t('deficit')}</div></div>`;
+
+  cl('dash-alert').innerHTML=(period==='month'||period==='week')?
+    (bal<0?`<div class="alert alert-danger">${t('alert_danger')}</div>`:`<div class="alert alert-ok">${t('alert_ok')}</div>`):'';
+
+  const max=Math.max(...Object.values(byCat),1);
+  cl('d-cats').innerHTML=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([id,amt])=>{
+    const c=getCat(id)||{color:'#888',bg:'#eee',icon:'?',label:{es:id},tipo:'variable'};
+    const pct=totalExp>0?Math.round(amt/totalExp*100):0;
+    return `<div class="cat-row">
+      <div class="cat-dot" style="background:${c.color}"></div>
+      <div class="cat-label">${c.icon||''} ${catLabel(c)}</div>
+      <div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${Math.round(amt/max*100)}%;background:${c.color}"></div></div>
+      <div class="cat-amount">${fmt(amt)} <span style="color:var(--text3);font-size:10px">${pct}%</span></div>
+    </div>`;
+  }).join('')||`<div class="empty"><div class="empty-text">${t('no_data')}</div></div>`;
+  renderFlowChart();
+}
+
+function renderFlowChart(){
+  const now=new Date(); const labels=[],incData=[],expData=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    labels.push(d.toLocaleString(lang==='ja'?'ja-JP':lang==='en'?'en-US':'es-ES',{month:'short'}));
+    const mInc=incomes.filter(inc=>{
+      if(FREQS[inc.freq]?.recurring) return true;
+      const id=new Date(inc.date);return id.getMonth()===d.getMonth()&&id.getFullYear()===d.getFullYear();
+    }).reduce((s,i)=>s+monthlyEquiv(i.amt,i.freq),0);
+    const allE=[...expenses,...bankExpenses];
+    const mExp=allE.filter(e=>{const ed=new Date(e.date);return ed.getMonth()===d.getMonth()&&ed.getFullYear()===d.getFullYear();}).reduce((s,e)=>s+e.amt,0);
+    incData.push(Math.round(mInc));expData.push(Math.round(mExp));
+  }
+  if(flowChart)flowChart.destroy();
+  flowChart=new Chart(cl('flow-chart'),{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:t('inc_lbl'),data:incData,backgroundColor:'rgba(99,153,34,0.7)',borderColor:'#639922',borderWidth:1},
+      {label:t('exp_lbl'),data:expData,backgroundColor:'rgba(226,75,74,0.7)',borderColor:'#E24B4A',borderWidth:1},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>fmt(ctx.raw)}}},
+      scales:{y:{ticks:{callback:v=>CURRENCIES[cur].sym+v.toLocaleString()},grid:{color:'rgba(0,0,0,0.04)'}},x:{grid:{display:false}}}
+    }
+  });
+}
+
+// ===== INCOME =====
+function addIncome(){
+  const desc=cl('inc-desc').value.trim(),amt=parseFloat(cl('inc-amt').value),date=cl('inc-date').value;
+  const type=cl('inc-type').value,freq=cl('inc-freq').value,note=cl('inc-note').value;
+  if(!desc||!amt||!date){alert('Completa los campos requeridos');return;}
+  incomes.push({desc,type,freq,amt,date,note});saveUser();
+  cl('inc-desc').value='';cl('inc-amt').value='';cl('inc-note').value='';cl('inc-date').value=today();
+  const equiv=monthlyEquiv(amt,freq);
+  const equivEl=cl('inc-equiv-note');
+  if(freq!=='mensual'&&freq!=='unico'){
+    equivEl.style.display='flex';
+    equivEl.textContent=t('inc_equiv')+': '+fmt(equiv);
+    setTimeout(()=>{equivEl.style.display='none';},3000);
+  }
+  renderIncomeList();
+}
+
+function renderIncomeList(){
+  const el=cl('inc-list');
+  if(!incomes.length){el.innerHTML=`<div class="empty"><div class="empty-icon">↑</div><div class="empty-text">${t('no_data')}</div></div>`;return;}
+  el.innerHTML=[...incomes].reverse().map(i=>{
+    const it=INC_TYPES[i.type]||INC_TYPES.otro;
+    const meq=monthlyEquiv(i.amt,i.freq);
+    return `<div class="list-item">
+      <div class="item-icon" style="background:var(--income-bg)">💰</div>
+      <div class="item-body">
+        <div class="item-name">${i.desc}</div>
+        <div class="item-meta">
+          <span class="badge badge-income">${incTypeLabel(i.type)}</span>
+          <span class="badge badge-freq" style="margin-left:4px">${freqLabel(i.freq)}</span>
+          ${i.freq!=='mensual'&&i.freq!=='unico'?`<span style="font-size:10px;color:var(--text3);margin-left:4px">≈${fmt(meq)}/mes</span>`:''}
+          ${i.note?`<span style="margin-left:4px">· ${i.note}</span>`:''}
+        </div>
+        <div style="font-size:11px;color:var(--text3)">${i.date}</div>
+      </div>
+      <div class="item-amount positive">+${fmt(i.amt)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ===== SCAN (IA per item) =====
+// ===== SCAN — REAL AI =====
+let selectedImageFile = null;
+const SCAN_API = '/api/scan-receipt';
+
+function triggerFileInput() {
+  cl('receipt-input').click();
+}
+
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (file) loadImagePreview(file);
+}
+
+function handleDrop(event) {
+  event.preventDefault();
+  const file = event.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) loadImagePreview(file);
+}
+
+function loadImagePreview(file) {
+  selectedImageFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    cl('scan-thumb').src = e.target.result;
+    cl('scan-filename').textContent = file.name;
+    cl('scan-filesize').textContent = (file.size / 1024).toFixed(0) + ' KB';
+    cl('scan-preview').style.display = 'block';
+    cl('scan-result-area').innerHTML = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeReceipt() {
+  if (!selectedImageFile) return;
+  cl('ai-loading').style.display = 'block';
+  cl('scan-result-area').innerHTML = '';
+  cl('ai-load-txt').textContent = t('analyzing');
+
+  try {
+    const formData = new FormData();
+    formData.append('image', selectedImageFile);
+    formData.append('lang', lang);
+    formData.append('currency', cur);
+
+    const response = await fetch(SCAN_API, {
+      method: 'POST',
+      body: formData,
+    });
+
+    cl('ai-loading').style.display = 'none';
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      showScanError(err.error || 'Error al analizar el recibo.');
+      return;
+    }
+
+    const data = await response.json();
+    renderScanResult(data.receipt, selectedImageFile.name);
+
+  } catch (err) {
+    cl('ai-loading').style.display = 'none';
+    showScanError('Sin conexión al servidor. Verifica que el backend esté corriendo.');
+  }
+}
+
+// Demo scan (no image needed — uses hardcoded data)
+function startDemoScan() {
+  cl('ai-loading').style.display = 'block';
+  cl('scan-result-area').innerHTML = '';
+  const m = cur === 'JPY' ? 1 : cur === 'MXN' ? 0.13 : 0.01;
+  setTimeout(() => {
+    cl('ai-loading').style.display = 'none';
+    const demoReceipt = {
+      store: 'セブンイレブン — 7-Eleven',
+      date: today(),
+      currency: cur,
+      items: [
+        { nameOriginal: 'おにぎり（鮭）', nameTranslated: 'Onigiri salmón', amount: Math.round(148*m), quantity: 1, category: 'comida', confidence: 0.99 },
+        { nameOriginal: '緑茶 500ml', nameTranslated: 'Té verde 500ml', amount: Math.round(158*m), quantity: 1, category: 'comida', confidence: 0.98 },
+        { nameOriginal: 'シャンプー（パンテーン）', nameTranslated: 'Champú Pantene', amount: Math.round(698*m), quantity: 1, category: 'limp_p', confidence: 0.96 },
+        { nameOriginal: 'ボディソープ', nameTranslated: 'Jabón corporal', amount: Math.round(498*m), quantity: 1, category: 'limp_p', confidence: 0.95 },
+        { nameOriginal: '除菌ウェットシート', nameTranslated: 'Toallitas desinfectantes', amount: Math.round(298*m), quantity: 1, category: 'limp_h', confidence: 0.97 },
+        { nameOriginal: 'コーヒー BOSS', nameTranslated: 'Café BOSS', amount: Math.round(148*m), quantity: 1, category: 'hormiga', confidence: 0.99 },
+        { nameOriginal: 'スナック菓子', nameTranslated: 'Snack papas', amount: Math.round(108*m), quantity: 1, category: 'hormiga', confidence: 0.93 },
+      ],
+      subtotal: Math.round(2056*m),
+      tax: Math.round(206*m),
+      taxRate: 0.10,
+      total: Math.round(2262*m),
+      notes: 'Demo — sin imagen real'
+    };
+    renderScanResult(demoReceipt, 'demo');
+  }, 1600);
+}
+
+function renderScanResult(receipt, sourceName) {
+  const catOpts = CATS.map(c => `<option value="${c.id}">${c.icon} ${catLabel(c)}</option>`).join('');
+  const dateVal = receipt.date || today();
+  const itemRows = receipt.items.map((it, idx) => {
+    const confidence = it.confidence >= 0.9 ? '✓' : it.confidence >= 0.7 ? '~' : '?';
+    const confColor = it.confidence >= 0.9 ? 'var(--income-color)' : it.confidence >= 0.7 ? 'var(--warn-color)' : 'var(--expense-color)';
+    const selectedOpts = catOpts.replace(`value="${it.category}"`, `value="${it.category}" selected`);
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:7px 4px;font-size:12px">
+        <div style="font-weight:500">${it.nameOriginal}</div>
+        ${it.nameTranslated && it.nameTranslated !== it.nameOriginal ? `<div style="font-size:11px;color:var(--text3)">${it.nameTranslated}</div>` : ''}
+        ${it.quantity > 1 ? `<div style="font-size:10px;color:var(--text3)">×${it.quantity}</div>` : ''}
+      </td>
+      <td style="text-align:right;padding:7px 4px;font-size:13px;font-weight:500;white-space:nowrap">
+        ${fmt(it.amount)}
+        <div style="font-size:10px;color:${confColor};font-weight:400">${confidence}</div>
+      </td>
+      <td style="padding:7px 4px">
+        <select id="scan-cat-${idx}" style="padding:5px 8px;font-size:11px;width:100%;min-width:140px">${selectedOpts}</select>
+      </td>
+    </tr>`;
+  }).join('');
+
+  cl('scan-result-area').innerHTML = `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div>
+        <div style="font-size:15px;font-weight:500">${receipt.store || 'Recibo'}</div>
+        <div style="font-size:11px;color:var(--text3)">${receipt.items.length} ${t('scan_items')} · ${sourceName !== 'demo' ? '✦ IA real' : 'Demo'}</div>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label style="font-size:11px">${t('scan_date_lbl')}</label>
+        <input type="date" id="scan-date" value="${dateVal}" style="padding:5px 8px;font-size:12px">
+      </div>
+    </div>
+    ${receipt.notes ? `<div class="alert alert-info" style="margin-bottom:10px;font-size:12px">${receipt.notes}</div>` : ''}
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;font-size:11px;color:var(--text3);font-weight:500;padding:6px 4px">${t('scan_items')}</th>
+          <th style="text-align:right;font-size:11px;color:var(--text3);font-weight:500;padding:6px 4px">Monto</th>
+          <th style="text-align:left;font-size:11px;color:var(--text3);font-weight:500;padding:6px 4px">${t('scan_cat_lbl')} ✦</th>
+        </tr></thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+    </div>
+    <div style="background:var(--surface2);border-radius:var(--radius-xs);padding:10px;margin-bottom:12px">
+      ${receipt.subtotal ? `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:var(--text3)"><span>Subtotal</span><span>${fmt(receipt.subtotal)}</span></div>` : ''}
+      ${receipt.tax ? `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:var(--text3)"><span>${t('scan_tax')} ${receipt.taxRate ? '('+Math.round(receipt.taxRate*100)+'%)' : ''}</span><span>${fmt(receipt.tax)}</span></div>` : ''}
+      <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:500;padding:6px 0;border-top:1px solid var(--border2);margin-top:4px"><span>${t('scan_total')}</span><span>${fmt(receipt.total || receipt.items.reduce((s,i)=>s+i.amount,0))}</span></div>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="confirmScanResult()">
+      ${t('scan_confirm')} (${receipt.items.length} ítems)
+    </button>
+  </div>`;
+
+  // Store receipt data for confirmScanResult
+  window._pendingReceipt = receipt;
+}
+
+function confirmScanResult() {
+  const receipt = window._pendingReceipt;
+  if (!receipt) return;
+  const date = cl('scan-date')?.value || today();
+  let totalAmt = 0;
+  receipt.items.forEach((it, idx) => {
+    const cat = cl('scan-cat-' + idx)?.value || it.category;
+    const desc = it.nameOriginal + (it.nameTranslated && it.nameTranslated !== it.nameOriginal ? ' — ' + it.nameTranslated : '');
+    expenses.push({ desc, cat, amt: it.amount, date, note: receipt.store || 'レシート' });
+    totalAmt += it.amount;
+  });
+  if (receipt.tax > 0) {
+    expenses.push({ desc: '消費税 / IVA (' + (receipt.store || 'recibo') + ')', cat: 'bancario', amt: receipt.tax, date, note: '' });
+    totalAmt += receipt.tax;
+  }
+  saveUser();
+  window._pendingReceipt = null;
+  cl('scan-preview').style.display = 'none';
+  selectedImageFile = null;
+  cl('scan-result-area').innerHTML = `<div class="alert alert-ok">✓ ${receipt.items.length} ${t('scan_registered')} — ${fmt(totalAmt)}</div>`;
+  setTimeout(() => showMain('dashboard'), 1800);
+}
+
+function showScanError(msg) {
+  cl('scan-result-area').innerHTML = `<div class="alert alert-danger">✗ ${msg}</div>`;
+}
+
+// ===== MANUAL EXPENSE =====
+function addManual(){
+  const desc=cl('man-desc').value.trim(),amt=parseFloat(cl('man-amt').value),date=cl('man-date').value,cat=cl('man-cat').value,note=cl('man-note').value;
+  if(!desc||!amt||!date){alert('Completa los campos requeridos');return;}
+  expenses.push({desc,cat,amt,date,note});saveUser();
+  cl('man-desc').value='';cl('man-amt').value='';cl('man-note').value='';
+  showMain('dashboard');
+}
+
+// ===== BANK EXPENSES =====
+let bankType='servicio';
+function selBankType(type,el){
+  bankType=type;
+  document.querySelectorAll('.bank-type-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  renderBankForm();
+}
+
+function renderBankForm(){
+  const bt=BANK_TYPES[bankType];
+  const catOpts=bankType==='tarjeta'?
+    `<option value="tarjeta_credito" selected>💳 ${catLabel(getCat('tarjeta_credito'))}</option>`+CATS.map(c=>`<option value="${c.id}">${c.icon} ${catLabel(c)}</option>`).join(''):
+    bankType==='comision'?
+    `<option value="bancario" selected>🏦 ${catLabel(getCat('bancario'))}</option>`+CATS.map(c=>`<option value="${c.id}">${c.icon} ${catLabel(c)}</option>`).join(''):
+    CATS.map(c=>`<option value="${c.id}"${c.id==='servicios'?' selected':''}>${c.icon} ${catLabel(c)}</option>`).join('');
+
+  cl('bank-form-area').innerHTML=`
+    <div class="form-row form-2">
+      <div class="form-group"><label id="bl-desc">${t('bank_l_desc')}</label><input type="text" id="bank-desc" placeholder="${bankType==='tarjeta'?'Ej: Pago tarjeta VISA':bankType==='comision'?'Ej: Comisión mantenimiento':'Ej: Netflix, Spotify...'}"></div>
+      <div class="form-group"><label>${t('bank_l_amt')}</label><input type="number" id="bank-amt" placeholder="0" min="0"></div>
+    </div>
+    <div class="form-row form-2">
+      <div class="form-group"><label>${t('bank_l_date')}</label><input type="date" id="bank-date" value="${today()}"></div>
+      <div class="form-group"><label>${t('bank_l_card')}</label><input type="text" id="bank-card" placeholder="Ej: VISA Banamex, SMBC..."></div>
+    </div>
+    ${bankType!=='comision'?`<div class="form-group"><label>${t('bank_l_cat')}</label><select id="bank-cat">${catOpts}</select></div>`:'<input type="hidden" id="bank-cat" value="bancario">'}
+    <div class="form-group"><label>${t('bank_l_note')}</label><textarea id="bank-note" rows="2"></textarea></div>
+    <button class="btn btn-primary btn-block" onclick="addBankExpense()">${t('bank_btn')}</button>`;
+}
+
+function addBankExpense(){
+  const desc=cl('bank-desc').value.trim(),amt=parseFloat(cl('bank-amt').value),date=cl('bank-date').value;
+  const cardName=cl('bank-card').value.trim(),cat=cl('bank-cat').value,note=cl('bank-note').value;
+  if(!desc||!amt||!date){alert('Completa los campos requeridos');return;}
+  bankExpenses.push({desc,bankType,cat,cardName,amt,date,note});saveUser();
+  cl('bank-desc').value='';cl('bank-amt').value='';cl('bank-note').value='';cl('bank-card').value='';
+  renderBankList();
+}
+
+function renderBankList(){
+  const el=cl('bank-list');
+  if(!bankExpenses.length){el.innerHTML=`<div class="empty"><div class="empty-icon">🏦</div><div class="empty-text">${t('no_data')}</div></div>`;return;}
+  el.innerHTML=[...bankExpenses].reverse().map(b=>{
+    const bt=BANK_TYPES[b.bankType]||BANK_TYPES.comision;
+    const c=getCat(b.cat)||CATS[0];
+    return `<div class="list-item">
+      <div class="item-icon" style="background:${bt.bg}">${bt.icon}</div>
+      <div class="item-body">
+        <div class="item-name">${b.desc}</div>
+        <div class="item-meta">
+          <span class="badge badge-bank">${bt[lang]||bt.es}</span>
+          ${b.cardName?`<span class="badge badge-cc" style="margin-left:4px">${b.cardName}</span>`:''}
+          <span style="margin-left:4px;font-size:10px;color:var(--text3)">${c.icon} ${catLabel(c)}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">${b.date}${b.note?' · '+b.note:''}</div>
+      </div>
+      <div class="item-amount negative">-${fmt(b.amt)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ===== HISTORY =====
+function switchHTab(tab){
+  histTab=tab;
+  ['exp','inc','bank'].forEach(k=>{cl('htab-'+k).classList.toggle('active',k===tab);});
+  cl('hist-filter-wrap').style.display=tab==='exp'?'block':'none';
+  renderHistory();
+}
+
+function renderHistory(){
+  const el=cl('hist-list'),filter=cl('hist-filter').value;
+  if(histTab==='inc'){
+    if(!incomes.length){el.innerHTML=`<div class="empty"><div class="empty-text">${t('no_data')}</div></div>`;return;}
+    el.innerHTML=[...incomes].reverse().map(i=>`<div class="list-item">
+      <div class="item-icon" style="background:var(--income-bg)">💰</div>
+      <div class="item-body">
+        <div class="item-name">${i.desc}</div>
+        <div class="item-meta"><span class="badge badge-income">${incTypeLabel(i.type)}</span> <span class="badge badge-freq">${freqLabel(i.freq)}</span>${i.note?' · '+i.note:''}</div>
+        <div style="font-size:11px;color:var(--text3)">${i.date}</div>
+      </div>
+      <div class="item-amount positive">+${fmt(i.amt)}</div>
+    </div>`).join('');return;
+  }
+  if(histTab==='bank'){
+    if(!bankExpenses.length){el.innerHTML=`<div class="empty"><div class="empty-text">${t('no_data')}</div></div>`;return;}
+    el.innerHTML=[...bankExpenses].reverse().map(b=>{
+      const bt=BANK_TYPES[b.bankType]||BANK_TYPES.comision;
+      const c=getCat(b.cat)||CATS[0];
+      return `<div class="list-item">
+        <div class="item-icon" style="background:${bt.bg}">${bt.icon}</div>
+        <div class="item-body">
+          <div class="item-name">${b.desc}</div>
+          <div class="item-meta"><span class="badge badge-bank">${bt[lang]||bt.es}</span>${b.cardName?` <span class="badge badge-cc">${b.cardName}</span>`:''} <span style="font-size:10px;color:var(--text3)">${c.icon} ${catLabel(c)}</span></div>
+          <div style="font-size:11px;color:var(--text3)">${b.date}${b.note?' · '+b.note:''}</div>
+        </div>
+        <div class="item-amount negative">-${fmt(b.amt)}</div>
+      </div>`;
+    }).join('');return;
+  }
+  const list=[...expenses].filter(e=>filter==='all'||e.cat===filter).reverse();
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="empty-text">${t('no_data')}</div></div>`;return;}
+  el.innerHTML=list.map(e=>{
+    const c=getCat(e.cat)||{icon:'?',bg:'#eee',color:'#888',tipo:'variable',label:{es:e.cat}};
+    return `<div class="list-item">
+      <div class="item-icon" style="background:${c.bg}">${c.icon}</div>
+      <div class="item-body">
+        <div class="item-name">${e.desc}</div>
+        <div class="item-meta">${catLabel(c)} <span class="badge badge-${c.tipo==='fijo'?'fixed':'variable'}">${t(c.tipo==='fijo'?'fijo':'variable')}</span>${e.note?' · '+e.note:''}</div>
+        <div style="font-size:11px;color:var(--text3)">${e.date}</div>
+      </div>
+      <div class="item-amount negative">-${fmt(e.amt)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ===== BUDGET =====
+function renderBudgetPage(){
+  const now=new Date();
+  const allExp=[...expenses,...bankExpenses];
+  const mExp=allExp.filter(e=>{const d=new Date(e.date);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
+  const byCat={};mExp.forEach(e=>{byCat[e.cat]=(byCat[e.cat]||0)+e.amt;});
+  let alerts='',progs='';
+  CATS.forEach(c=>{
+    const bud=budgets[c.id]||0,spent=byCat[c.id]||0;
+    if(bud>0){
+      const pct=Math.min(Math.round(spent/bud*100),100);
+      const over=spent>bud;
+      const barColor=over?'#E24B4A':pct>80?'#BA7517':'#185FA5';
+      progs+=`<div class="prog-item"><div class="prog-header">
+        <span>${c.icon} ${catLabel(c)} <span class="badge badge-${c.tipo==='fijo'?'fixed':'variable'}">${t(c.tipo==='fijo'?'fijo':'variable')}</span></span>
+        <span>${fmt(spent)} / ${fmt(bud)}</span>
+      </div><div class="prog-bg"><div class="prog-fill" style="width:${pct}%;background:${barColor}"></div></div></div>`;
+      if(over) alerts+=`<div class="alert alert-warn">${c.icon} ${catLabel(c)}: ${t('bud_over')} ${fmt(spent-bud)}</div>`;
+    }
+  });
+  cl('bud-alerts').innerHTML=alerts;
+  cl('bud-progress').innerHTML=progs||`<div class="empty"><div class="empty-text">${t('no_data')}</div></div>`;
+  cl('bud-edit-lbl').textContent=t('bud_edit');cl('bud-save-btn').textContent=t('bud_save');
+  cl('bud-edit-fields').innerHTML=CATS.map(c=>`
+    <div class="form-group"><label>${c.icon} ${catLabel(c)}</label>
+    <input type="number" id="bedit-${c.id}" value="${budgets[c.id]||''}" placeholder="${CURRENCIES[cur].sym}0" min="0"></div>`).join('');
+}
+
+function saveBudgets(){
+  CATS.forEach(c=>{budgets[c.id]=parseFloat(cl('bedit-'+c.id)?.value)||0;});
+  saveUser();renderBudgetPage();
+}
+
+// ═══════════════════════════════════════════════════
+// DATA LAYER — API + localStorage fallback
+// ═══════════════════════════════════════════════════
+const API = ''; // same origin — backend serves frontend
+let authToken = null;
+let syncPending = false;
+let useLocalOnly = false; // true if backend unreachable
+
+// LocalStorage helpers (offline fallback)
+const LS = {
+  save() {
+    try { localStorage.setItem('kakeibo_v2', JSON.stringify({ users, lang, cur })); } catch(e) {}
+  },
+  load() {
+    try {
+      const d = JSON.parse(localStorage.getItem('kakeibo_v2')||'{}');
+      if (d.users) users = d.users;
+      if (d.lang) lang = d.lang;
+      if (d.cur) cur = d.cur;
+      return !!d.users;
+    } catch(e) { return false; }
+  },
+  setSession(token, user) { localStorage.setItem('kakeibo_session', JSON.stringify({ token, user })); },
+  getSession() { try { return JSON.parse(localStorage.getItem('kakeibo_session')||'null'); } catch { return null; } },
+  clearSession() { localStorage.removeItem('kakeibo_session'); },
+};
+
+// ── API helpers ──
+async function apiCall(method, path, body, isFormData=false) {
+  const headers = {};
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  if (!isFormData && body) headers['Content-Type'] = 'application/json';
+  try {
+    const resp = await fetch(API + path, {
+      method,
+      headers,
+      body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Error del servidor');
+    return data;
+  } catch (e) {
+    if (e.message === 'Failed to fetch') useLocalOnly = true;
+    throw e;
+  }
+}
+
+// ── Sync: push local data to server after reconnect ──
+async function syncToServer() {
+  if (!authToken || useLocalOnly) return;
+  // expenses
+  for (const e of expenses) {
+    if (e._local) {
+      try {
+        await apiCall('POST', '/api/expenses', e);
+        delete e._local;
+      } catch {}
+    }
+  }
+  // incomes
+  for (const i of incomes) {
+    if (i._local) {
+      try {
+        await apiCall('POST', '/api/incomes', i);
+        delete i._local;
+      } catch {}
+    }
+  }
+  // bank
+  for (const b of bankExpenses) {
+    if (b._local) {
+      try {
+        await apiCall('POST', '/api/bank-expenses', b);
+        delete b._local;
+      } catch {}
+    }
+  }
+  LS.save();
+}
+
+// ── Load all data from API ──
+async function loadAllData() {
+  if (useLocalOnly || !authToken) return;
+  try {
+    const [expRes, incRes, bankRes] = await Promise.all([
+      apiCall('GET', '/api/expenses'),
+      apiCall('GET', '/api/incomes'),
+      apiCall('GET', '/api/bank-expenses'),
+    ]);
+    // Normalize field names (API uses amount/category, local uses amt/cat)
+    expenses = (expRes.expenses||[]).map(e => ({ ...e, amt: e.amount, cat: e.category }));
+    incomes = (incRes.incomes||[]).map(i => ({ ...i, amt: i.amount }));
+    bankExpenses = (bankRes.bankExpenses||[]).map(b => ({ ...b, amt: b.amount, cat: b.category, bankType: b.bank_type, cardName: b.card_name }));
+    LS.save();
+  } catch (e) {
+    console.warn('Could not load from API, using local data:', e.message);
+  }
+}
+
+// ── Override saveUser to also push to API ──
+function saveUser() {
+  if (currentUser && users[currentUser]) {
+    users[currentUser].expenses = expenses;
+    users[currentUser].incomes = incomes;
+    users[currentUser].bankExpenses = bankExpenses;
+    users[currentUser].budgets = budgets;
+    users[currentUser].lang = lang;
+    users[currentUser].cur = cur;
+  }
+  LS.save();
+  // Sync budgets/profile to server
+  if (authToken && !useLocalOnly) {
+    apiCall('PUT', '/api/auth/profile', { name: users[currentUser]?.name, lang, currency: cur, budgets }).catch(()=>{});
+  }
+}
+
+// Auto-save every 30s
+setInterval(() => { if (currentUser) saveUser(); }, 30000);
+window.addEventListener('beforeunload', () => { if (currentUser) saveUser(); });
+window.addEventListener('pagehide', () => { if (currentUser) saveUser(); });
+
+// ══════════════════════════════════════════════
+// AUTH — override login/register to use API
+// ══════════════════════════════════════════════
+async function doRegister() {
+  const name = cl('a-name')?.value.trim();
+  const email = cl('a-email').value.trim();
+  const pass = cl('a-pass').value;
+  if (!name||!email||!pass) { alert('Completa todos los campos'); return; }
+  try {
+    const data = await apiCall('POST', '/api/auth/register', { email, password: pass, name, lang, currency: cur });
+    authToken = data.session?.access_token;
+    currentUser = email;
+    users[email] = { name, pass:'', budgets:{...budgets}, expenses:[], incomes:[], bankExpenses:[], lang, cur };
+    LS.setSession(authToken, { email, name });
+    LS.save();
+    initMain();
+  } catch (e) {
+    if (useLocalOnly) {
+      // Fallback to local-only
+      if (users[email]) { alert('Correo ya registrado'); return; }
+      users[email] = { name, pass, budgets:{...budgets}, expenses:[], incomes:[], bankExpenses:[], lang, cur };
+      currentUser = email;
+      LS.setSession(null, { email, name });
+      LS.save();
+      initMain();
+    } else {
+      alert(e.message);
+    }
+  }
+}
+
+async function doLogin() {
+  const email = cl('a-email').value.trim();
+  const pass = cl('a-pass').value;
+  try {
+    const data = await apiCall('POST', '/api/auth/login', { email, password: pass });
+    authToken = data.session?.access_token;
+    currentUser = email;
+    const p = data.profile || {};
+    lang = p.lang || lang;
+    cur = p.currency || cur;
+    budgets = p.budgets || {};
+    users[email] = { name: p.name || email, pass:'', budgets, expenses:[], incomes:[], bankExpenses:[], lang, cur };
+    LS.setSession(authToken, { email, name: p.name });
+    await loadAllData();
+    initMain();
+  } catch (e) {
+    if (useLocalOnly && users[email]) {
+      if (users[email].pass !== pass) { alert('Credenciales incorrectas'); return; }
+      currentUser = email; lang = users[email].lang||lang; cur = users[email].cur||cur;
+      budgets = users[email].budgets||{}; expenses = users[email].expenses||[];
+      incomes = users[email].incomes||[]; bankExpenses = users[email].bankExpenses||[];
+      LS.setSession(null, { email });
+      initMain();
+    } else { alert(e.message || 'Credenciales incorrectas'); }
+  }
+}
+
+function demoLogin() {
+  const email = 'demo@kakeibo.app';
+  useLocalOnly = true; // demo always local
+  const m = cur==='JPY'?1:cur==='MXN'?0.13:0.01;
+  if (!users[email]) {
+    users[email] = { name:'Demo', pass:'demo', lang, cur,
+      budgets:{ servicios:Math.round(6000*m), renta:Math.round(80000*m), tarjeta_credito:Math.round(15000*m), limp_p:Math.round(3000*m), limp_h:Math.round(2000*m), comida:Math.round(25000*m), hormiga:Math.round(8000*m), movilidad:Math.round(6000*m), regalo:Math.round(4000*m) },
+      expenses:[
+        {id:'d1',desc:'Internet fibra',cat:'servicios',amt:Math.round(4500*m),date:'2026-04-05',note:''},
+        {id:'d2',desc:'Renta departamento',cat:'renta',amt:Math.round(80000*m),date:'2026-04-01',note:''},
+        {id:'d3',desc:'Aceite facial DHC',cat:'limp_p',amt:Math.round(1980*m),date:'2026-04-07',note:'Skin care'},
+        {id:'d4',desc:'Suica チャージ',cat:'movilidad',amt:Math.round(3000*m),date:'2026-04-08',note:''},
+        {id:'d5',desc:'Café Doutor',cat:'hormiga',amt:Math.round(480*m),date:'2026-04-09',note:''},
+        {id:'d6',desc:'Supermercado OK Store',cat:'comida',amt:Math.round(7200*m),date:'2026-04-06',note:''},
+        {id:'d7',desc:'Regalo cumpleaños',cat:'regalo',amt:Math.round(3500*m),date:'2026-04-03',note:''},
+        {id:'d8',desc:'7-Eleven',cat:'hormiga',amt:Math.round(1082*m),date:'2026-04-02',note:''},
+        {id:'d9',desc:'Bus Yokohama',cat:'movilidad',amt:Math.round(220*m),date:'2026-04-09',note:''},
+        {id:'d10',desc:'Supermercado marzo',cat:'comida',amt:Math.round(18000*m),date:'2026-03-20',note:''},
+      ],
+      incomes:[
+        {id:'i1',desc:'Salario empresa',type:'fijo',freq:'mensual',amt:Math.round(280000*m),date:'2026-04-25',note:''},
+        {id:'i2',desc:'Clases en línea',type:'part',freq:'semanal',amt:Math.round(8000*m),date:'2026-04-07',note:'Inglés'},
+        {id:'i3',desc:'Remesa familia',type:'remesa',freq:'mensual',amt:Math.round(20000*m),date:'2026-04-10',note:''},
+        {id:'i4',desc:'Salario empresa',type:'fijo',freq:'mensual',amt:Math.round(280000*m),date:'2026-03-25',note:''},
+      ],
+      bankExpenses:[
+        {id:'b1',desc:'Netflix',bankType:'servicio',cat:'servicios',cardName:'VISA Banamex',amt:Math.round(1990*m),date:'2026-04-03',note:''},
+        {id:'b2',desc:'Pago mínimo VISA',bankType:'tarjeta',cat:'tarjeta_credito',cardName:'VISA Banamex',amt:Math.round(12000*m),date:'2026-04-18',note:''},
+        {id:'b3',desc:'Comisión mantenimiento',bankType:'comision',cat:'bancario',cardName:'SMBC',amt:Math.round(550*m),date:'2026-04-01',note:''},
+      ]
+    };
+  }
+  currentUser = email; lang = users[email].lang||lang; cur = users[email].cur||cur;
+  budgets = users[email].budgets||{}; expenses = users[email].expenses||[];
+  incomes = users[email].incomes||[]; bankExpenses = users[email].bankExpenses||[];
+  LS.setSession(null, { email, name:'Demo' });
+  initMain();
+}
+
+// Override logout
+function logout() {
+  if (authToken) apiCall('POST', '/api/auth/logout').catch(()=>{});
+  authToken = null; useLocalOnly = false;
+  saveUser();
+  LS.clearSession();
+  currentUser = null; expenses=[]; incomes=[]; bankExpenses=[]; budgets={};
+  showScreen('s-login');
+}
+
+// ══════════════════════════════════════════════
+// OVERRIDE addManual, addIncome, addBankExpense
+// to push to API when online
+// ══════════════════════════════════════════════
+const _baseAddManual = addManual;
+function addManual() {
+  const desc=cl('man-desc').value.trim(), amt=parseFloat(cl('man-amt').value), date=cl('man-date').value, cat=cl('man-cat').value, note=cl('man-note').value;
+  if (!desc||!amt||!date) { alert('Completa los campos requeridos'); return; }
+  const entry = { desc, cat, amt, date, note, _local: true };
+  expenses.push(entry);
+  if (authToken && !useLocalOnly) {
+    apiCall('POST', '/api/expenses', entry).then(r => { delete entry._local; LS.save(); }).catch(()=>{});
+  }
+  saveUser();
+  cl('man-desc').value=''; cl('man-amt').value=''; cl('man-note').value='';
+  showMain('dashboard');
+}
+
+const _baseAddIncome = addIncome;
+function addIncome() {
+  const desc=cl('inc-desc').value.trim(), amt=parseFloat(cl('inc-amt').value), date=cl('inc-date').value;
+  const type=cl('inc-type').value, freq=cl('inc-freq').value, note=cl('inc-note').value;
+  if (!desc||!amt||!date) { alert('Completa los campos requeridos'); return; }
+  const entry = { desc, type, freq, amt, date, note, _local: true };
+  incomes.push(entry);
+  if (authToken && !useLocalOnly) {
+    apiCall('POST', '/api/incomes', entry).then(r => { delete entry._local; LS.save(); }).catch(()=>{});
+  }
+  saveUser();
+  cl('inc-desc').value=''; cl('inc-amt').value=''; cl('inc-note').value=''; cl('inc-date').value=today();
+  const equiv = monthlyEquiv(amt, freq);
+  const equivEl = cl('inc-equiv-note');
+  if (freq!=='mensual'&&freq!=='unico') { equivEl.style.display='flex'; equivEl.textContent=t('inc_equiv')+': '+fmt(equiv); setTimeout(()=>{equivEl.style.display='none';},3000); }
+  renderIncomeList();
+}
+
+const _baseAddBank = addBankExpense;
+function addBankExpense() {
+  const desc=cl('bank-desc').value.trim(), amt=parseFloat(cl('bank-amt').value), date=cl('bank-date').value;
+  const cardName=cl('bank-card').value.trim(), cat=cl('bank-cat').value, note=cl('bank-note').value;
+  if (!desc||!amt||!date) { alert('Completa los campos requeridos'); return; }
+  const entry = { desc, bankType, cat, cardName, amt, date, note, _local: true };
+  bankExpenses.push(entry);
+  if (authToken && !useLocalOnly) {
+    apiCall('POST', '/api/bank-expenses', entry).then(r => { delete entry._local; LS.save(); }).catch(()=>{});
+  }
+  saveUser();
+  cl('bank-desc').value=''; cl('bank-amt').value=''; cl('bank-note').value=''; cl('bank-card').value='';
+  renderBankList();
+}
+
+// Override confirmScanResult to push to API
+const _baseConfirmScan = confirmScanResult;
+function confirmScanResult() {
+  const receipt = window._pendingReceipt;
+  if (!receipt) return;
+  const date = cl('scan-date')?.value || today();
+  const newItems = [];
+  receipt.items.forEach((it, idx) => {
+    const cat = cl('scan-cat-' + idx)?.value || it.category;
+    const desc = it.nameOriginal + (it.nameTranslated && it.nameTranslated !== it.nameOriginal ? ' — ' + it.nameTranslated : '');
+    const entry = { desc, cat, amt: it.amount, date, note: receipt.store || 'レシート', _local: true };
+    expenses.push(entry);
+    newItems.push(entry);
+  });
+  if (receipt.tax > 0) {
+    const taxEntry = { desc: '消費税 / IVA (' + (receipt.store||'recibo') + ')', cat: 'bancario', amt: receipt.tax, date, note: '', _local: true };
+    expenses.push(taxEntry);
+    newItems.push(taxEntry);
+  }
+  if (authToken && !useLocalOnly) {
+    apiCall('POST', '/api/expenses', newItems).then(()=>{ newItems.forEach(e=>delete e._local); LS.save(); }).catch(()=>{});
+  }
+  saveUser();
+  window._pendingReceipt = null;
+  cl('scan-preview').style.display = 'none';
+  selectedImageFile = null;
+  const total = newItems.reduce((s,e)=>s+e.amt,0);
+  cl('scan-result-area').innerHTML = `<div class="alert alert-ok">✓ ${receipt.items.length} ${t('scan_registered')} — ${fmt(total)}</div>`;
+  setTimeout(() => showMain('dashboard'), 1800);
+}
+
+// ══════════════════════════════════════════════
+// EXPORT UI — add export buttons to budget page
+// ══════════════════════════════════════════════
+function renderExportButtons() {
+  const existing = cl('export-section');
+  if (existing) existing.remove();
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const to = now.toISOString().split('T')[0];
+  const section = document.createElement('div');
+  section.id = 'export-section';
+  section.className = 'card';
+  section.style.marginTop = '.75rem';
+  const available = authToken && !useLocalOnly;
+  section.innerHTML = `
+    <div class="card-title">Exportar datos</div>
+    ${!available ? '<div class="alert alert-warn" style="font-size:12px;margin-bottom:10px">Disponible con cuenta activa y servidor conectado</div>' : ''}
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Período: ${from} → ${to}</div>
+    <div style="display:flex;gap:8px">
+      <a ${available?`href="/api/export/excel?from=${from}&to=${to}" download`:'href="#"'} onclick="${!available?'event.preventDefault();alert("Conecta tu cuenta para exportar")':''}"
+        class="btn ${available?'btn-primary':''}" style="flex:1;text-decoration:none;justify-content:center">
+        📊 Excel (.xlsx)
+      </a>
+      <a ${available?`href="/api/export/pdf?from=${from}&to=${to}" download`:'href="#"'} onclick="${!available?'event.preventDefault();alert("Conecta tu cuenta para exportar")':''}"
+        class="btn" style="flex:1;text-decoration:none;justify-content:center;${available?'border-color:var(--accent2);color:var(--accent2)':''}">
+        📄 PDF
+      </a>
+    </div>`;
+
+  // Append to budget page
+  const budPage = cl('page-budgetpage');
+  if (budPage) budPage.appendChild(section);
+}
+
+// Add fetch headers to scan endpoint
+const _baseAnalyze = analyzeReceipt;
+async function analyzeReceipt() {
+  if (!selectedImageFile) return;
+  if (!authToken && !useLocalOnly) {
+    alert('Inicia sesión con una cuenta real para usar el escaneo con IA');
+    return;
+  }
+  cl('ai-loading').style.display = 'block';
+  cl('scan-result-area').innerHTML = '';
+  cl('ai-load-txt').textContent = t('analyzing');
+  try {
+    const formData = new FormData();
+    formData.append('image', selectedImageFile);
+    formData.append('lang', lang);
+    formData.append('currency', cur);
+    const response = await fetch(API + '/api/scan-receipt', {
+      method: 'POST',
+      headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
+      body: formData,
+    });
+    cl('ai-loading').style.display = 'none';
+    if (!response.ok) {
+      const err = await response.json().catch(()=>({}));
+      showScanError(err.error || 'Error al analizar el recibo.');
+      return;
+    }
+    const data = await response.json();
+    renderScanResult(data.receipt, selectedImageFile.name);
+  } catch (err) {
+    cl('ai-loading').style.display = 'none';
+    showScanError('Sin conexión al servidor. Usa el modo Demo para probar.');
+  }
+}
+
+// ══════════════════════════════════════════════
+// INSTALL PROMPT
+// ══════════════════════════════════════════════
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstallPrompt = e; showInstallBanner(); });
+function showInstallBanner() {
+  if (cl('install-banner')) return;
+  const b = document.createElement('div'); b.id='install-banner';
+  b.style.cssText='position:fixed;bottom:0;left:0;right:0;background:#2D5016;color:#fff;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));display:flex;justify-content:space-between;align-items:center;z-index:9999;font-family:var(--font);font-size:13px;';
+  b.innerHTML=`<div><div style="font-weight:500">Instalar Kakeibo</div><div style="font-size:11px;opacity:.8">Agrega la app a tu pantalla de inicio</div></div><div style="display:flex;gap:8px"><button onclick="installApp()" style="background:#fff;color:#2D5016;border:none;padding:7px 14px;border-radius:6px;font-weight:500;cursor:pointer;font-size:12px">Instalar</button><button onclick="dismissInstall()" style="background:rgba(255,255,255,.2);color:#fff;border:none;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:16px">×</button></div>`;
+  document.body.appendChild(b);
+}
+function installApp() { if(!deferredInstallPrompt)return; deferredInstallPrompt.prompt(); deferredInstallPrompt.userChoice.then(()=>{deferredInstallPrompt=null;dismissInstall();}); }
+function dismissInstall() { const b=cl('install-banner'); if(b)b.remove(); }
+
+function showIOSInstallHint() {
+  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent), isStandalone=window.navigator.standalone, dismissed=localStorage.getItem('kakeibo_ios_hint');
+  if(isIOS&&!isStandalone&&!dismissed) setTimeout(()=>{
+    if(cl('ios-hint'))return;
+    const h=document.createElement('div'); h.id='ios-hint';
+    h.style.cssText='position:fixed;bottom:0;left:0;right:0;background:#2D5016;color:#fff;padding:14px 16px;padding-bottom:max(14px,env(safe-area-inset-bottom));z-index:9999;font-family:var(--font);font-size:13px;border-radius:12px 12px 0 0;';
+    h.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-weight:500;margin-bottom:6px">📲 Instalar en iPhone / iPad</div><div style="font-size:12px;opacity:.85;line-height:1.7">1. Toca el botón <strong>Compartir</strong> (⬆) en Safari<br>2. Selecciona <strong>"Agregar a pantalla de inicio"</strong><br>3. Toca <strong>"Agregar"</strong></div></div><button onclick="dismissIOSHint()" style="background:rgba(255,255,255,.2);color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:16px;margin-left:12px">×</button></div>`;
+    document.body.appendChild(h);
+  }, 3000);
+}
+function dismissIOSHint() { localStorage.setItem('kakeibo_ios_hint','1'); const h=cl('ios-hint'); if(h)h.remove(); }
+
+function updateOnlineStatus() {
+  const e=cl('offline-bar');
+  if(!navigator.onLine){
+    if(!e){ const b=document.createElement('div'); b.id='offline-bar'; b.style.cssText='position:fixed;top:0;left:0;right:0;background:#BA7517;color:#fff;padding:6px;text-align:center;font-size:12px;z-index:9999;font-family:var(--font)'; b.textContent='📴 Sin conexión — los datos se guardan localmente'; document.body.prepend(b); }
+  } else { if(e)e.remove(); if(syncPending){syncToServer();syncPending=false;} }
+}
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', ()=>{ syncPending=true; updateOnlineStatus(); });
+
+// Service Worker
+if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+
+// ── Init on page load ──
+window.addEventListener('DOMContentLoaded', () => {
+  LS.load();
+  showIOSInstallHint();
+  updateOnlineStatus();
+  const session = LS.getSession();
+  if (session) {
+    authToken = session.token;
+    const email = session.user?.email;
+    if (email) {
+      currentUser = email;
+      if (!users[email]) users[email] = { name: session.user?.name||email, pass:'', budgets:{}, expenses:[], incomes:[], bankExpenses:[], lang, cur };
+      lang = users[email].lang||lang; cur = users[email].cur||cur;
+      budgets = users[email].budgets||{}; expenses = users[email].expenses||[];
+      incomes = users[email].incomes||[]; bankExpenses = users[email].bankExpenses||[];
+      if (authToken) {
+        loadAllData().then(() => initMain());
+      } else {
+        initMain();
+      }
+    }
+  }
+});
+
+// Patch initMain to render export buttons
+const _origInitMain = initMain;
+function initMain() {
+  localStorage.setItem('kakeibo_session_ts', Date.now());
+  _origInitMain();
+}
+
+// Patch showMain to render export buttons when on budget page
+const _origShowMain = showMain;
+function showMain(sec) {
+  _origShowMain(sec);
+  if (sec === 'budgetpage') setTimeout(renderExportButtons, 50);
+}
+</script>
+
+<style>
+.sidebar { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
+.main-content { padding-bottom: max(2rem, env(safe-area-inset-bottom)); }
+@media (display-mode: standalone) {
+  .sidebar { padding-top: max(1.5rem, env(safe-area-inset-top)); }
+  .main-content { padding-top: max(1rem, env(safe-area-inset-top)); }
+}
+</style>
+
+</body>
+</html>

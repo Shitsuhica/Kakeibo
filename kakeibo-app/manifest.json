@@ -1,0 +1,47 @@
+{
+  "name": "家計簿 Kakeibo",
+  "short_name": "Kakeibo",
+  "description": "Control inteligente de ingresos y gastos — Japón, Perú, México",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F7F5F0",
+  "theme_color": "#2D5016",
+  "orientation": "portrait-primary",
+  "lang": "es",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Agregar gasto",
+      "short_name": "Gasto",
+      "url": "./index.html#manual",
+      "description": "Registrar un gasto rápidamente"
+    },
+    {
+      "name": "Agregar ingreso",
+      "short_name": "Ingreso",
+      "url": "./index.html#income",
+      "description": "Registrar un ingreso"
+    }
+  ]
+}
