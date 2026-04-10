@@ -15,19 +15,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-// Support both old (eyJ...) and new (sb_secret_...) Supabase key formats
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+// Two Supabase clients:
+// - supabase: service role for DB operations (bypasses RLS)
+// - supabaseAuth: anon key for auth operations (login/register)
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  supabaseKey,
-  { 
-    auth: { autoRefreshToken: false, persistSession: false },
-    global: {
-      headers: supabaseKey.startsWith('sb_secret_') 
-        ? { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
-        : {}
-    }
-  }
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
+const supabaseAuth = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*', methods: ['GET','POST','PUT','DELETE'] }));
@@ -40,7 +39,7 @@ async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'No autorizado.' });
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
     if (error || !user) return res.status(401).json({ error: 'Token inválido.' });
     req.user = user;
     next();
@@ -55,7 +54,7 @@ async function requireAuth(req, res, next) {
 app.post('/api/auth/register', async (req, res) => {
   const { email, password, name, lang, currency } = req.body;
   if (!email || !password || !name) return res.status(400).json({ error: 'Campos requeridos: email, password, name.' });
-  const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name, lang: lang||'es', currency: currency||'JPY' } } });
+  const { data, error } = await supabaseAuth.auth.signUp({ email, password, options: { data: { name, lang: lang||'es', currency: currency||'JPY' } } });
   if (error) return res.status(400).json({ error: error.message });
   await supabase.from('profiles').upsert({ id: data.user.id, name, lang: lang||'es', currency: currency||'JPY' });
   res.json({ success: true, user: data.user, session: data.session });
@@ -63,7 +62,7 @@ app.post('/api/auth/register', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabaseAuth.auth.signInWithPassword({ email, password });
   if (error) return res.status(401).json({ error: 'Credenciales incorrectas.' });
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
   res.json({ success: true, user: data.user, session: data.session, profile });
