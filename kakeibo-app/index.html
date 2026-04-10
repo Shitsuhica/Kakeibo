@@ -240,6 +240,28 @@ textarea{resize:vertical;min-height:64px}
 </head>
 <body>
 
+<script>
+// Inline early — needed before DOM renders
+function selLang(l,el){
+  window._lang=l;
+  document.querySelectorAll('.lang-grid .sel-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  if(window.applyLangChange) window.applyLangChange();
+}
+function selCur(c,el){
+  window._cur=c;
+  document.querySelectorAll('.cur-grid .sel-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+function goOnboard2(){if(window._goOnboard2)window._goOnboard2();else{alert('Cargando...');setTimeout(goOnboard2,500);}}
+function goLogin(){if(window._goLogin)window._goLogin();}
+function switchAuth(m){if(window._switchAuth)window._switchAuth(m);}
+function doRegister(){if(window._doRegister)window._doRegister();}
+function doLogin(){if(window._doLogin)window._doLogin();}
+function demoLogin(){if(window._demoLogin)window._demoLogin();}
+</script>
+
+
 <!-- ===== ONBOARDING 1 ===== -->
 <div class="screen active" id="s-onboard">
   <div class="ob-center">
@@ -1747,6 +1769,19 @@ window.addEventListener('offline', ()=>{ syncPending=true; updateOnlineStatus();
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 
 // ── Init on page load ──
+
+// Alias real functions so inline stubs can call them
+window._goOnboard2 = goOnboard2;
+window._goLogin = goLogin;
+window._switchAuth = switchAuth;
+window._doRegister = doRegister;
+window._doLogin = doLogin;
+window._demoLogin = demoLogin;
+
+// Sync window._lang/_cur set by early inline script
+if (window._lang) lang = window._lang;
+if (window._cur) cur = window._cur;
+
 window.addEventListener('DOMContentLoaded', () => {
   LS.load();
   showIOSInstallHint();
