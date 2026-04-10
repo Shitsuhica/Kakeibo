@@ -253,12 +253,40 @@ function selCur(c,el){
   document.querySelectorAll('.cur-grid .sel-btn').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
 }
-function goOnboard2(){if(window._goOnboard2)window._goOnboard2();else{alert('Cargando...');setTimeout(goOnboard2,500);}}
-function goLogin(){if(window._goLogin)window._goLogin();}
+function showScreen(id){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.getElementById(id).classList.add('active');}
+function goOnboard2(){
+  var cb=document.querySelector('.cur-grid .sel-btn.active');
+  if(!cb){alert('Por favor selecciona una moneda');return;}
+  // Build budget fields immediately
+  var CATS=[
+    {id:'servicios',icon:'💡',tipo:'fijo',label:'Servicios'},
+    {id:'renta',icon:'🏠',tipo:'fijo',label:'Renta / Hipoteca'},
+    {id:'tarjeta_credito',icon:'💳',tipo:'fijo',label:'Tarjeta de crédito'},
+    {id:'limp_p',icon:'✨',tipo:'variable',label:'Limpieza personal'},
+    {id:'limp_h',icon:'🧹',tipo:'variable',label:'Limpieza hogar'},
+    {id:'comida',icon:'🛒',tipo:'variable',label:'Comida'},
+    {id:'hormiga',icon:'🐜',tipo:'variable',label:'Gastos Hormiga'},
+    {id:'movilidad',icon:'🚃',tipo:'variable',label:'Movilidad'},
+    {id:'regalo',icon:'🎁',tipo:'variable',label:'Regalos'},
+    {id:'bancario',icon:'🏦',tipo:'variable',label:'Bancario'},
+  ];
+  var sym = window._cur==='PEN'?'S/':window._cur==='MXN'?'MX$':'¥';
+  var html = CATS.map(function(c){
+    return '<div class="form-group"><label>'+c.icon+' '+c.label+'</label><input type="number" id="bud-'+c.id+'" placeholder="'+sym+'0" min="0"></div>';
+  }).join('');
+  document.getElementById('bud-fields').innerHTML = html;
+  showScreen('s-budget');
+}
+function goLogin(){
+  if(window._goLogin){window._goLogin();return;}
+  showScreen('s-login');
+  var el=document.getElementById('auth-form');
+  el.innerHTML='<div class="form-group"><label>Correo</label><input type="email" id="a-email" placeholder="correo@ejemplo.com"></div><div class="form-group"><label>Contraseña</label><input type="password" id="a-pass"></div><button class="btn btn-primary btn-block" onclick="doLogin()">Entrar</button><div style="text-align:center;margin-top:10px;font-size:12px;color:var(--text2)"><span style="cursor:pointer;text-decoration:underline" onclick="demoLogin()">Entrar como demo →</span></div>';
+}
 function switchAuth(m){if(window._switchAuth)window._switchAuth(m);}
-function doRegister(){if(window._doRegister)window._doRegister();}
-function doLogin(){if(window._doLogin)window._doLogin();}
-function demoLogin(){if(window._demoLogin)window._demoLogin();}
+function doRegister(){if(window._doRegister)window._doRegister();else alert('Cargando, intenta de nuevo en unos segundos');}
+function doLogin(){if(window._doLogin)window._doLogin();else alert('Cargando, intenta de nuevo en unos segundos');}
+function demoLogin(){if(window._demoLogin)window._demoLogin();else alert('Cargando, intenta de nuevo en unos segundos');}
 </script>
 
 
