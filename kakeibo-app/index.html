@@ -241,87 +241,53 @@ textarea{resize:vertical;min-height:64px}
 <body>
 
 <script>
-// Inline early — needed before DOM renders
-function selLang(l,el){
-  window._lang=l;
-  document.querySelectorAll('.lang-grid .sel-btn').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  if(window.applyLangChange) window.applyLangChange();
-}
-function selCur(c,el){
-  window._cur=c;
-  document.querySelectorAll('.cur-grid .sel-btn').forEach(b=>b.classList.remove('active'));
+// Minimal inline — just stores user selections, no function conflicts
+window._kk = { lang: 'es', cur: null };
+function selLang(l, el) {
+  window._kk.lang = l;
+  document.querySelectorAll('.lang-grid .sel-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
 }
-function showScreen(id){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.getElementById(id).classList.add('active');}
-function goOnboard2(){
-  var cb=document.querySelector('.cur-grid .sel-btn.active');
-  if(!cb){alert('Por favor selecciona una moneda');return;}
-  // Build budget fields immediately
-  var CATS=[
-    {id:'servicios',icon:'💡',tipo:'fijo',label:'Servicios'},
-    {id:'renta',icon:'🏠',tipo:'fijo',label:'Renta / Hipoteca'},
-    {id:'tarjeta_credito',icon:'💳',tipo:'fijo',label:'Tarjeta de crédito'},
-    {id:'limp_p',icon:'✨',tipo:'variable',label:'Limpieza personal'},
-    {id:'limp_h',icon:'🧹',tipo:'variable',label:'Limpieza hogar'},
-    {id:'comida',icon:'🛒',tipo:'variable',label:'Comida'},
-    {id:'hormiga',icon:'🐜',tipo:'variable',label:'Gastos Hormiga'},
-    {id:'movilidad',icon:'🚃',tipo:'variable',label:'Movilidad'},
-    {id:'regalo',icon:'🎁',tipo:'variable',label:'Regalos'},
-    {id:'bancario',icon:'🏦',tipo:'variable',label:'Bancario'},
-  ];
-  var sym = window._cur==='PEN'?'S/':window._cur==='MXN'?'MX$':'¥';
-  var html = CATS.map(function(c){
-    return '<div class="form-group"><label>'+c.icon+' '+c.label+'</label><input type="number" id="bud-'+c.id+'" placeholder="'+sym+'0" min="0"></div>';
-  }).join('');
-  document.getElementById('bud-fields').innerHTML = html;
-  showScreen('s-budget');
+function selCur(c, el) {
+  window._kk.cur = c;
+  document.querySelectorAll('.cur-grid .sel-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
 }
-function goLogin(){
-  if(window._goLogin){window._goLogin();return;}
-  showScreen('s-login');
-  var el=document.getElementById('auth-form');
-  el.innerHTML='<div class="form-group"><label>Correo</label><input type="email" id="a-email" placeholder="correo@ejemplo.com"></div><div class="form-group"><label>Contraseña</label><input type="password" id="a-pass"></div><button class="btn btn-primary btn-block" onclick="doLogin()">Entrar</button><div style="text-align:center;margin-top:10px;font-size:12px;color:var(--text2)"><span style="cursor:pointer;text-decoration:underline" onclick="demoLogin()">Entrar como demo →</span></div>';
+function _dispatch(name, data) {
+  document.dispatchEvent(new CustomEvent('kk:' + name, { detail: data || {} }));
 }
-function switchAuth(m){
-  if(window._switchAuth){window._switchAuth(m);return;}
-  // Standalone fallback
-  document.getElementById('tl-login').classList.toggle('active',m==='login');
-  document.getElementById('tl-register').classList.toggle('active',m==='register');
-  var el=document.getElementById('auth-form');
-  if(m==='register'){
-    el.innerHTML='<div class="form-group"><label>Nombre</label><input type="text" id="a-name" placeholder="Tu nombre"></div><div class="form-group"><label>Correo</label><input type="email" id="a-email" placeholder="correo@ejemplo.com"></div><div class="form-group"><label>Contraseña</label><input type="password" id="a-pass"></div><button class="btn btn-primary btn-block" onclick="doRegister()">Crear cuenta</button>';
-  } else {
-    el.innerHTML='<div class="form-group"><label>Correo</label><input type="email" id="a-email" placeholder="correo@ejemplo.com"></div><div class="form-group"><label>Contraseña</label><input type="password" id="a-pass"></div><button class="btn btn-primary btn-block" onclick="doLogin()">Entrar</button><div style="text-align:center;margin-top:10px;font-size:12px;color:var(--text2)"><span style="cursor:pointer;text-decoration:underline" onclick="demoLogin()">Entrar como demo →</span></div>';
-  }
+function goOnboard2() {
+  if (!window._kk.cur) { alert('Por favor selecciona una moneda'); return; }
+  _dispatch('goOnboard2');
 }
-function doRegister(){
-  if(window._doRegister){window._doRegister();return;}
-  var tries=0;
-  var retry=setInterval(function(){
-    tries++;
-    if(window._doRegister){clearInterval(retry);window._doRegister();}
-    else if(tries>30){clearInterval(retry);alert('Error al cargar. Recarga la página e intenta de nuevo.');}
-  },200);
+function goLogin() { _dispatch('goLogin'); }
+function switchAuth(m) { _dispatch('switchAuth', { mode: m }); }
+function doRegister() { _dispatch('doRegister'); }
+function doLogin() { _dispatch('doLogin'); }
+function demoLogin() { _dispatch('demoLogin'); }
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  var el = document.getElementById(id);
+  if (el) el.classList.add('active');
 }
-function doLogin(){
-  if(window._doLogin){window._doLogin();return;}
-  var tries=0;
-  var retry=setInterval(function(){
-    tries++;
-    if(window._doLogin){clearInterval(retry);window._doLogin();}
-    else if(tries>30){clearInterval(retry);alert('Error al cargar. Recarga la página e intenta de nuevo.');}
-  },200);
-}
-function demoLogin(){
-  if(window._demoLogin){window._demoLogin();return;}
-  var tries=0;
-  var retry=setInterval(function(){
-    tries++;
-    if(window._demoLogin){clearInterval(retry);window._demoLogin();}
-    else if(tries>30){clearInterval(retry);alert('Error al cargar. Recarga la página e intenta de nuevo.');}
-  },200);
-}
+function logout() { _dispatch('logout'); }
+function showMain(s) { _dispatch('showMain', { section: s }); }
+function setPeriod(p, el) { _dispatch('setPeriod', { period: p, el: el }); }
+function switchHTab(t) { _dispatch('switchHTab', { tab: t }); }
+function selBankType(t, el) { _dispatch('selBankType', { type: t, el: el }); }
+function triggerFileInput() { var el = document.getElementById('receipt-input'); if (el) el.click(); }
+function startDemoScan() { _dispatch('startDemoScan'); }
+function installApp() { if (window._deferredPrompt) { window._deferredPrompt.prompt(); } }
+function dismissInstall() { var b = document.getElementById('install-banner'); if (b) b.remove(); }
+function dismissIOSHint() { localStorage.setItem('kakeibo_ios_hint','1'); var h = document.getElementById('ios-hint'); if (h) h.remove(); }
+function addManual() { _dispatch('addManual'); }
+function addIncome() { _dispatch('addIncome'); }
+function addBankExpense() { _dispatch('addBankExpense'); }
+function confirmScanResult() { _dispatch('confirmScanResult'); }
+function analyzeReceipt() { _dispatch('analyzeReceipt'); }
+function saveBudgets() { _dispatch('saveBudgets'); }
+function renderExportButtons() { _dispatch('renderExportButtons'); }
+function handleDrop(e) { e.preventDefault(); var f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) _dispatch('handleDrop', { file: f }); }
 </script>
 
 
@@ -603,6 +569,7 @@ function demoLogin(){
 
 <script>
 // ===== DATA =====
+// ===== DATA =====
 const CURRENCIES={
   JPY:{sym:'¥',dec:0,locale:'ja-JP'},
   PEN:{sym:'S/',dec:2,locale:'es-PE'},
@@ -805,81 +772,9 @@ function renderAuthForm(m){
     <button class="btn btn-primary btn-block" onclick="doLogin()">${t('enter')}</button>`;
 }
 
-function doRegister(){
-  const name=cl('a-name')?.value.trim(),email=cl('a-email').value.trim(),pass=cl('a-pass').value;
-  if(!name||!email||!pass){alert('Completa todos los campos');return;}
-  if(users[email]){alert('Correo ya registrado');return;}
-  users[email]={name,pass,budgets:{...budgets},expenses:[],incomes:[],bankExpenses:[],lang,cur};
-  currentUser=email;initMain();
-}
-function doLogin(){
-  const email=cl('a-email').value.trim(),pass=cl('a-pass').value;
-  if(!users[email]||users[email].pass!==pass){alert('Credenciales incorrectas');return;}
-  currentUser=email;
-  lang=users[email].lang||lang;cur=users[email].cur||cur;
-  budgets=users[email].budgets||{};expenses=users[email].expenses||[];
-  incomes=users[email].incomes||[];bankExpenses=users[email].bankExpenses||[];
-  initMain();
-}
 
-function demoLogin(){
-  const email='demo@kakeibo.app';
-  const m=cur==='JPY'?1:cur==='MXN'?0.13:0.01;
-  if(!users[email]){
-    const b={servicios:Math.round(6000*m),renta:Math.round(80000*m),tarjeta_credito:Math.round(15000*m),limp_p:Math.round(3000*m),limp_h:Math.round(2000*m),comida:Math.round(25000*m),hormiga:Math.round(8000*m),movilidad:Math.round(6000*m),regalo:Math.round(4000*m)};
-    const exp=[
-      {desc:'Internet fibra',cat:'servicios',amt:Math.round(4500*m),date:'2026-04-05',note:''},
-      {desc:'Renta departamento',cat:'renta',amt:Math.round(80000*m),date:'2026-04-01',note:''},
-      {desc:'Aceite facial DHC',cat:'limp_p',amt:Math.round(1980*m),date:'2026-04-07',note:'Skin care'},
-      {desc:'Suica チャージ',cat:'movilidad',amt:Math.round(3000*m),date:'2026-04-08',note:''},
-      {desc:'Café Doutor',cat:'hormiga',amt:Math.round(480*m),date:'2026-04-09',note:''},
-      {desc:'OK Store compra semanal',cat:'comida',amt:Math.round(7200*m),date:'2026-04-06',note:''},
-      {desc:'Regalo cumpleaños Ana',cat:'regalo',amt:Math.round(3500*m),date:'2026-04-03',note:''},
-      {desc:'Limpiador multiusos',cat:'limp_h',amt:Math.round(398*m),date:'2026-04-04',note:''},
-      {desc:'7-Eleven',cat:'hormiga',amt:Math.round(1082*m),date:'2026-04-02',note:''},
-      {desc:'Bus Yokohama',cat:'movilidad',amt:Math.round(220*m),date:'2026-04-09',note:''},
-      {desc:'Luz eléctrica',cat:'servicios',amt:Math.round(3200*m),date:'2026-03-28',note:''},
-      {desc:'Restaurante sushi',cat:'hormiga',amt:Math.round(2200*m),date:'2026-03-30',note:''},
-      {desc:'Supermercado marzo',cat:'comida',amt:Math.round(18000*m),date:'2026-03-20',note:''},
-    ];
-    const inc=[
-      {desc:'Salario empresa',type:'fijo',freq:'mensual',amt:Math.round(280000*m),date:'2026-04-25',note:''},
-      {desc:'Clases en línea',type:'part',freq:'semanal',amt:Math.round(8000*m),date:'2026-04-07',note:'Inglés'},
-      {desc:'Remesa familia',type:'remesa',freq:'mensual',amt:Math.round(20000*m),date:'2026-04-10',note:''},
-      {desc:'Salario empresa',type:'fijo',freq:'mensual',amt:Math.round(280000*m),date:'2026-03-25',note:''},
-      {desc:'Freelance diseño',type:'freelance',freq:'unico',amt:Math.round(35000*m),date:'2026-03-15',note:'Logo proyecto'},
-    ];
-    const bank=[
-      {desc:'Netflix',bankType:'servicio',cat:'servicios',cardName:'VISA Banamex',amt:Math.round(1990*m),date:'2026-04-03',note:''},
-      {desc:'Spotify Premium',bankType:'servicio',cat:'servicios',cardName:'VISA Banamex',amt:Math.round(990*m),date:'2026-04-03',note:''},
-      {desc:'Pago mínimo VISA',bankType:'tarjeta',cat:'tarjeta_credito',cardName:'VISA Banamex',amt:Math.round(12000*m),date:'2026-04-18',note:'Pago total'},
-      {desc:'Comisión mantenimiento',bankType:'comision',cat:'bancario',cardName:'SMBC Prestia',amt:Math.round(550*m),date:'2026-04-01',note:''},
-    ];
-    users[email]={name:'Demo',pass:'demo',lang,cur,budgets:b,expenses:exp,incomes:inc,bankExpenses:bank};
-  }
-  currentUser=email;lang=users[email].lang||lang;cur=users[email].cur||cur;
-  budgets=users[email].budgets||{};expenses=users[email].expenses||[];
-  incomes=users[email].incomes||[];bankExpenses=users[email].bankExpenses||[];
-  initMain();
-}
 
 // ===== INIT MAIN =====
-function initMain(){
-  showScreen('s-main');
-  const u=users[currentUser];
-  cl('user-avatar').textContent=(u.name||'?')[0].toUpperCase();
-  cl('user-name').textContent=u.name;
-  cl('user-cur').textContent=cur+' '+CURRENCIES[cur].sym;
-  cl('btn-logout').title=t('logout');
-  updateNavLabels();
-  buildCatSelect('man-cat');
-  buildHistFilter();
-  cl('man-date').value=today();
-  cl('inc-date').value=today();
-  updateFormLabels();
-  renderBankForm();
-  showMain('dashboard');
-}
 
 function updateNavLabels(){
   const keys={dashboard:'dash',income:'income',scan:'scan',manual:'manual',bank:'bank',history:'history',budgetpage:'budget'};
@@ -927,19 +822,7 @@ function buildHistFilter(){
 
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));cl(id).classList.add('active');}
 
-function showMain(page){
-  const pages=['dashboard','income','scan','manual','bank','history','budgetpage'];
-  pages.forEach(p=>{const el=cl('page-'+p);if(el)el.style.display=p===page?'block':'none';});
-  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
-  const nav=cl('nav-'+page);if(nav)nav.classList.add('active');
-  if(page==='dashboard')renderDashboard();
-  if(page==='income')renderIncomeList();
-  if(page==='bank'){renderBankForm();renderBankList();}
-  if(page==='history')renderHistory();
-  if(page==='budgetpage')renderBudgetPage();
-}
 
-function logout(){saveUser();currentUser=null;expenses=[];incomes=[];bankExpenses=[];budgets={};showScreen('s-login');}
 
 // ===== PERIOD FILTER =====
 function getByPeriod(arr,p,dk='date'){
@@ -1033,21 +916,6 @@ function renderFlowChart(){
 }
 
 // ===== INCOME =====
-function addIncome(){
-  const desc=cl('inc-desc').value.trim(),amt=parseFloat(cl('inc-amt').value),date=cl('inc-date').value;
-  const type=cl('inc-type').value,freq=cl('inc-freq').value,note=cl('inc-note').value;
-  if(!desc||!amt||!date){alert('Completa los campos requeridos');return;}
-  incomes.push({desc,type,freq,amt,date,note});saveUser();
-  cl('inc-desc').value='';cl('inc-amt').value='';cl('inc-note').value='';cl('inc-date').value=today();
-  const equiv=monthlyEquiv(amt,freq);
-  const equivEl=cl('inc-equiv-note');
-  if(freq!=='mensual'&&freq!=='unico'){
-    equivEl.style.display='flex';
-    equivEl.textContent=t('inc_equiv')+': '+fmt(equiv);
-    setTimeout(()=>{equivEl.style.display='none';},3000);
-  }
-  renderIncomeList();
-}
 
 function renderIncomeList(){
   const el=cl('inc-list');
@@ -1105,39 +973,6 @@ function loadImagePreview(file) {
   reader.readAsDataURL(file);
 }
 
-async function analyzeReceipt() {
-  if (!selectedImageFile) return;
-  cl('ai-loading').style.display = 'block';
-  cl('scan-result-area').innerHTML = '';
-  cl('ai-load-txt').textContent = t('analyzing');
-
-  try {
-    const formData = new FormData();
-    formData.append('image', selectedImageFile);
-    formData.append('lang', lang);
-    formData.append('currency', cur);
-
-    const response = await fetch(SCAN_API, {
-      method: 'POST',
-      body: formData,
-    });
-
-    cl('ai-loading').style.display = 'none';
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      showScanError(err.error || 'Error al analizar el recibo.');
-      return;
-    }
-
-    const data = await response.json();
-    renderScanResult(data.receipt, selectedImageFile.name);
-
-  } catch (err) {
-    cl('ai-loading').style.display = 'none';
-    showScanError('Sin conexión al servidor. Verifica que el backend esté corriendo.');
-  }
-}
 
 // Demo scan (no image needed — uses hardcoded data)
 function startDemoScan() {
@@ -1228,41 +1063,12 @@ function renderScanResult(receipt, sourceName) {
   window._pendingReceipt = receipt;
 }
 
-function confirmScanResult() {
-  const receipt = window._pendingReceipt;
-  if (!receipt) return;
-  const date = cl('scan-date')?.value || today();
-  let totalAmt = 0;
-  receipt.items.forEach((it, idx) => {
-    const cat = cl('scan-cat-' + idx)?.value || it.category;
-    const desc = it.nameOriginal + (it.nameTranslated && it.nameTranslated !== it.nameOriginal ? ' — ' + it.nameTranslated : '');
-    expenses.push({ desc, cat, amt: it.amount, date, note: receipt.store || 'レシート' });
-    totalAmt += it.amount;
-  });
-  if (receipt.tax > 0) {
-    expenses.push({ desc: '消費税 / IVA (' + (receipt.store || 'recibo') + ')', cat: 'bancario', amt: receipt.tax, date, note: '' });
-    totalAmt += receipt.tax;
-  }
-  saveUser();
-  window._pendingReceipt = null;
-  cl('scan-preview').style.display = 'none';
-  selectedImageFile = null;
-  cl('scan-result-area').innerHTML = `<div class="alert alert-ok">✓ ${receipt.items.length} ${t('scan_registered')} — ${fmt(totalAmt)}</div>`;
-  setTimeout(() => showMain('dashboard'), 1800);
-}
 
 function showScanError(msg) {
   cl('scan-result-area').innerHTML = `<div class="alert alert-danger">✗ ${msg}</div>`;
 }
 
 // ===== MANUAL EXPENSE =====
-function addManual(){
-  const desc=cl('man-desc').value.trim(),amt=parseFloat(cl('man-amt').value),date=cl('man-date').value,cat=cl('man-cat').value,note=cl('man-note').value;
-  if(!desc||!amt||!date){alert('Completa los campos requeridos');return;}
-  expenses.push({desc,cat,amt,date,note});saveUser();
-  cl('man-desc').value='';cl('man-amt').value='';cl('man-note').value='';
-  showMain('dashboard');
-}
 
 // ===== BANK EXPENSES =====
 function selBankType(type,el){
@@ -1294,14 +1100,6 @@ function renderBankForm(){
     <button class="btn btn-primary btn-block" onclick="addBankExpense()">${t('bank_btn')}</button>`;
 }
 
-function addBankExpense(){
-  const desc=cl('bank-desc').value.trim(),amt=parseFloat(cl('bank-amt').value),date=cl('bank-date').value;
-  const cardName=cl('bank-card').value.trim(),cat=cl('bank-cat').value,note=cl('bank-note').value;
-  if(!desc||!amt||!date){alert('Completa los campos requeridos');return;}
-  bankExpenses.push({desc,bankType,cat,cardName,amt,date,note});saveUser();
-  cl('bank-desc').value='';cl('bank-amt').value='';cl('bank-note').value='';cl('bank-card').value='';
-  renderBankList();
-}
 
 function renderBankList(){
   const el=cl('bank-list');
@@ -1644,7 +1442,6 @@ function logout() {
 // OVERRIDE addManual, addIncome, addBankExpense
 // to push to API when online
 // ══════════════════════════════════════════════
-const _baseAddManual = addManual;
 function addManual() {
   const desc=cl('man-desc').value.trim(), amt=parseFloat(cl('man-amt').value), date=cl('man-date').value, cat=cl('man-cat').value, note=cl('man-note').value;
   if (!desc||!amt||!date) { alert('Completa los campos requeridos'); return; }
@@ -1658,7 +1455,6 @@ function addManual() {
   showMain('dashboard');
 }
 
-const _baseAddIncome = addIncome;
 function addIncome() {
   const desc=cl('inc-desc').value.trim(), amt=parseFloat(cl('inc-amt').value), date=cl('inc-date').value;
   const type=cl('inc-type').value, freq=cl('inc-freq').value, note=cl('inc-note').value;
@@ -1676,7 +1472,6 @@ function addIncome() {
   renderIncomeList();
 }
 
-const _baseAddBank = addBankExpense;
 function addBankExpense() {
   const desc=cl('bank-desc').value.trim(), amt=parseFloat(cl('bank-amt').value), date=cl('bank-date').value;
   const cardName=cl('bank-card').value.trim(), cat=cl('bank-cat').value, note=cl('bank-note').value;
@@ -1692,7 +1487,6 @@ function addBankExpense() {
 }
 
 // Override confirmScanResult to push to API
-const _baseConfirmScan = confirmScanResult;
 function confirmScanResult() {
   const receipt = window._pendingReceipt;
   if (!receipt) return;
@@ -1757,7 +1551,6 @@ function renderExportButtons() {
 }
 
 // Add fetch headers to scan endpoint
-const _baseAnalyze = analyzeReceipt;
 async function analyzeReceipt() {
   if (!selectedImageFile) return;
   if (!authToken && !useLocalOnly) {
@@ -1871,18 +1664,49 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // Patch initMain to render export buttons
-const _origInitMain = initMain;
 function initMain() {
   localStorage.setItem('kakeibo_session_ts', Date.now());
   _origInitMain();
 }
 
 // Patch showMain to render export buttons when on budget page
-const _origShowMain = showMain;
 function showMain(sec) {
   _origShowMain(sec);
   if (sec === 'budgetpage') setTimeout(renderExportButtons, 50);
 }
+
+// ═══════════════════════════════════════════════════
+// EVENT BRIDGE — connects inline stubs to main functions
+// ═══════════════════════════════════════════════════
+(function() {
+  function on(name, fn) {
+    document.addEventListener('kk:' + name, function(e) { fn(e.detail); });
+  }
+  on('goOnboard2', function() {
+    if (window._kk) { lang = window._kk.lang; cur = window._kk.cur; }
+    goOnboard2();
+  });
+  on('goLogin', function() { goLogin(); });
+  on('switchAuth', function(d) { switchAuth(d.mode); });
+  on('doRegister', function() { doRegister(); });
+  on('doLogin', function() { doLogin(); });
+  on('demoLogin', function() { demoLogin(); });
+  on('logout', function() { logout(); });
+  on('showMain', function(d) { showMain(d.section); });
+  on('setPeriod', function(d) { setPeriod(d.period, d.el); });
+  on('switchHTab', function(d) { switchHTab(d.tab); });
+  on('selBankType', function(d) { selBankType(d.type, d.el); });
+  on('startDemoScan', function() { startDemoScan(); });
+  on('addManual', function() { addManual(); });
+  on('addIncome', function() { addIncome(); });
+  on('addBankExpense', function() { addBankExpense(); });
+  on('confirmScanResult', function() { confirmScanResult(); });
+  on('analyzeReceipt', function() { analyzeReceipt(); });
+  on('saveBudgets', function() { saveBudgets(); });
+  on('renderExportButtons', function() { renderExportButtons(); });
+  on('handleDrop', function(d) { if(d.file) loadImagePreview(d.file); });
+})();
+
 </script>
 
 <style>
