@@ -297,13 +297,12 @@ function switchAuth(m){
 }
 function doRegister(){
   if(window._doRegister){window._doRegister();return;}
-  // Retry up to 10 times with 300ms delay
   var tries=0;
   var retry=setInterval(function(){
     tries++;
     if(window._doRegister){clearInterval(retry);window._doRegister();}
-    else if(tries>10){clearInterval(retry);alert('Error al cargar. Recarga la página e intenta de nuevo.');}
-  },300);
+    else if(tries>30){clearInterval(retry);alert('Error al cargar. Recarga la página e intenta de nuevo.');}
+  },200);
 }
 function doLogin(){
   if(window._doLogin){window._doLogin();return;}
@@ -311,8 +310,8 @@ function doLogin(){
   var retry=setInterval(function(){
     tries++;
     if(window._doLogin){clearInterval(retry);window._doLogin();}
-    else if(tries>10){clearInterval(retry);alert('Error al cargar. Recarga la página e intenta de nuevo.');}
-  },300);
+    else if(tries>30){clearInterval(retry);alert('Error al cargar. Recarga la página e intenta de nuevo.');}
+  },200);
 }
 function demoLogin(){
   if(window._demoLogin){window._demoLogin();return;}
@@ -320,8 +319,8 @@ function demoLogin(){
   var retry=setInterval(function(){
     tries++;
     if(window._demoLogin){clearInterval(retry);window._demoLogin();}
-    else if(tries>10){clearInterval(retry);alert('Error al cargar. Recarga la página e intenta de nuevo.');}
-  },300);
+    else if(tries>30){clearInterval(retry);alert('Error al cargar. Recarga la página e intenta de nuevo.');}
+  },200);
 }
 </script>
 
@@ -1834,7 +1833,11 @@ if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.se
 
 // ── Init on page load ──
 
-// Alias real functions so inline stubs can call them
+// Sync window._lang/_cur set by early inline script
+if (window._lang) lang = window._lang;
+if (window._cur) cur = window._cur;
+
+// Alias real functions immediately — inline stubs poll for these
 window._goOnboard2 = goOnboard2;
 window._goLogin = goLogin;
 window._switchAuth = switchAuth;
@@ -1842,11 +1845,10 @@ window._doRegister = doRegister;
 window._doLogin = doLogin;
 window._demoLogin = demoLogin;
 
-// Sync window._lang/_cur set by early inline script
-if (window._lang) lang = window._lang;
-if (window._cur) cur = window._cur;
-
 window.addEventListener('DOMContentLoaded', () => {
+  // Hide loading screen
+  var loader = document.getElementById('js-loading');
+  if (loader) loader.style.display = 'none';
   LS.load();
   showIOSInstallHint();
   updateOnlineStatus();
