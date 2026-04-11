@@ -115,14 +115,14 @@ app.get('/api/expenses', requireAuth, async (req, res) => {
   if (category && category !== 'all') q = q.eq('category', category);
   const { data, error } = await q;
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ expenses: data });
+  res.json({ expenses: (data||[]).map(e => ({ ...e, desc: e.description, amt: e.amount, cat: e.category })) });
 });
 
 app.post('/api/expenses', requireAuth, async (req, res) => {
   try {
     const items = Array.isArray(req.body) ? req.body : [req.body];
     const rows = items.map(e => ({ 
-      desc: e.desc || e.description || 'Sin descripción', 
+      description: e.desc || e.description || 'Sin descripción', 
       category: e.cat || e.category || 'varios', 
       amount: parseFloat(e.amt || e.amount || 0), 
       date: e.date || new Date().toISOString().split('T')[0], 
@@ -153,13 +153,13 @@ app.delete('/api/expenses/:id', requireAuth, async (req, res) => {
 app.get('/api/incomes', requireAuth, async (req, res) => {
   const { data, error } = await supabase.from('incomes').select('*').eq('user_id', req.user.id).order('date', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ incomes: data });
+  res.json({ incomes: (data||[]).map(i => ({ ...i, desc: i.description, amt: i.amount })) });
 });
 
 app.post('/api/incomes', requireAuth, async (req, res) => {
   try {
     const i = req.body;
-    const row = { desc: i.desc, type: i.type || 'otro', freq: i.freq || 'mensual', amount: parseFloat(i.amt||i.amount||0), date: i.date || new Date().toISOString().split('T')[0], note: i.note||'', user_id: req.user.id };
+    const row = { description: i.desc || i.description, type: i.type || 'otro', freq: i.freq || 'mensual', amount: parseFloat(i.amt||i.amount||0), date: i.date || new Date().toISOString().split('T')[0], note: i.note||'', user_id: req.user.id };
     console.log('Saving income:', JSON.stringify(row));
     const { data, error } = await supabase.from('incomes').insert(row).select();
     if (error) {
@@ -184,12 +184,12 @@ app.delete('/api/incomes/:id', requireAuth, async (req, res) => {
 app.get('/api/bank-expenses', requireAuth, async (req, res) => {
   const { data, error } = await supabase.from('bank_expenses').select('*').eq('user_id', req.user.id).order('date', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ bankExpenses: data });
+  res.json({ bankExpenses: (data||[]).map(b => ({ ...b, desc: b.description, amt: b.amount, cat: b.category, bankType: b.bank_type, cardName: b.card_name })) });
 });
 
 app.post('/api/bank-expenses', requireAuth, async (req, res) => {
   const b = req.body;
-  const { data, error } = await supabase.from('bank_expenses').insert({ desc: b.desc, bank_type: b.bankType||b.bank_type, category: b.cat||b.category, card_name: b.cardName||b.card_name||'', amount: b.amt||b.amount, date: b.date, note: b.note||'', user_id: req.user.id }).select();
+  const { data, error } = await supabase.from('bank_expenses').insert({ description: b.desc||b.description, bank_type: b.bankType||b.bank_type, category: b.cat||b.category, card_name: b.cardName||b.card_name||'', amount: b.amt||b.amount, date: b.date, note: b.note||'', user_id: req.user.id }).select();
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true, bankExpense: data[0] });
 });
