@@ -1452,17 +1452,20 @@ async function syncToServer() {
 
 // ── Load all data from API ──
 async function loadAllData() {
+  // Always try to get token from localStorage if authToken is null
+  if (!authToken) authToken = getToken();
   if (useLocalOnly || !authToken) return;
   try {
+    console.log('Loading all data for user...');
     const [expRes, incRes, bankRes] = await Promise.all([
       apiCall('GET', '/api/expenses'),
       apiCall('GET', '/api/incomes'),
       apiCall('GET', '/api/bank-expenses'),
     ]);
-    // Normalize field names (API uses amount/category, local uses amt/cat)
-    expenses = (expRes.expenses||[]).map(e => ({ ...e, amt: e.amount, cat: e.category }));
-    incomes = (incRes.incomes||[]).map(i => ({ ...i, amt: i.amount }));
-    bankExpenses = (bankRes.bankExpenses||[]).map(b => ({ ...b, amt: b.amount, cat: b.category, bankType: b.bank_type, cardName: b.card_name }));
+    console.log('Data loaded - expenses:', expRes.expenses?.length, 'incomes:', incRes.incomes?.length);
+    expenses = (expRes.expenses||[]).map(e => ({ ...e, amt: e.amt||e.amount, cat: e.cat||e.category }));
+    incomes = (incRes.incomes||[]).map(i => ({ ...i, amt: i.amt||i.amount }));
+    bankExpenses = (bankRes.bankExpenses||[]).map(b => ({ ...b, amt: b.amt||b.amount, cat: b.cat||b.category, bankType: b.bankType||b.bank_type, cardName: b.cardName||b.card_name }));
     LS.save();
   } catch (e) {
     console.warn('Could not load from API, using local data:', e.message);
