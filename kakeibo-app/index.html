@@ -1391,7 +1391,7 @@ const LS = {
       return !!d.users;
     } catch(e) { return false; }
   },
-  setSession(token, user) { localStorage.setItem('kakeibo_session', JSON.stringify({ token, user })); },
+  setSession(token, user, refresh) { localStorage.setItem('kakeibo_session', JSON.stringify({ token, user, refresh, ts: Date.now() })); },
   getSession() { try { return JSON.parse(localStorage.getItem('kakeibo_session')||'null'); } catch { return null; } },
   clearSession() { localStorage.removeItem('kakeibo_session'); },
 };
@@ -1501,9 +1501,10 @@ async function doRegister() {
   try {
     const data = await apiCall('POST', '/api/auth/register', { email, password: pass, name, lang, currency: cur });
     authToken = data.session?.access_token;
+    const refreshToken = data.session?.refresh_token;
     currentUser = email;
     users[email] = { name, pass:'', budgets:{...budgets}, expenses:[], incomes:[], bankExpenses:[], lang, cur };
-    LS.setSession(authToken, { email, name });
+    LS.setSession(authToken, { email, name }, refreshToken);
     LS.save();
     initMain();
   } catch (e) {
@@ -1527,13 +1528,14 @@ async function doLogin() {
   try {
     const data = await apiCall('POST', '/api/auth/login', { email, password: pass });
     authToken = data.session?.access_token;
+    const refreshToken = data.session?.refresh_token;
     currentUser = email;
     const p = data.profile || {};
     lang = p.lang || lang;
     cur = p.currency || cur;
     budgets = p.budgets || {};
     users[email] = { name: p.name || email, pass:'', budgets, expenses:[], incomes:[], bankExpenses:[], lang, cur };
-    LS.setSession(authToken, { email, name: p.name });
+    LS.setSession(authToken, { email, name: p.name }, refreshToken);
     await loadAllData();
     initMain();
   } catch (e) {
@@ -1805,7 +1807,6 @@ window.addEventListener('DOMContentLoaded', () => {
   updateOnlineStatus();
   const session = LS.getSession();
   if (session) {
-    authToken = session.token;
     const email = session.user?.email;
     if (email) {
       currentUser = email;
@@ -1813,8 +1814,30 @@ window.addEventListener('DOMContentLoaded', () => {
       lang = users[email].lang||lang; cur = users[email].cur||cur;
       budgets = users[email].budgets||{}; expenses = users[email].expenses||[];
       incomes = users[email].incomes||[]; bankExpenses = users[email].bankExpenses||[];
-      if (authToken) {
-        loadAllData().then(() => initMain());
+
+      // Try to refresh the token using refresh_token
+      if (session.refresh && !useLocalOnly) {
+        fetch('/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: session.refresh })
+        }).then(r => r.json()).then(data => {
+          if (data.access_token) {
+            authToken = data.access_token;
+            LS.setSession(authToken, session.user, data.refresh_token || session.refresh);
+            loadAllData().then(() => initMain());
+          } else {
+            // Refresh failed — use local data
+            useLocalOnly = true;
+            initMain();
+          }
+        }).catch(() => {
+          useLocalOnly = true;
+          initMain();
+        });
+      } else if (session.token) {
+        authToken = session.token;
+        loadAllData().then(() => initMain()).catch(() => initMain());
       } else {
         initMain();
       }
