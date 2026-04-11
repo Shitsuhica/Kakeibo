@@ -1397,6 +1397,26 @@ const LS = {
 };
 
 // ── API helpers ──
+async function refreshAuthToken() {
+  try {
+    const session = LS.getSession();
+    if (!session?.refresh) return false;
+    const r = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: session.refresh })
+    });
+    if (!r.ok) return false;
+    const data = await r.json();
+    if (data.access_token) {
+      authToken = data.access_token;
+      LS.setSession(authToken, session.user, data.refresh_token || session.refresh);
+      return true;
+    }
+    return false;
+  } catch { return false; }
+}
+
 async function apiCall(method, path, body, isFormData=false) {
   const headers = {};
   const tkn = authToken || getToken();
@@ -1408,6 +1428,29 @@ async function apiCall(method, path, body, isFormData=false) {
       headers,
       body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
     });
+    // Auto-refresh on 401
+    if (resp.status === 401) {
+      const refreshed = await refreshAuthToken();
+      if (refreshed) {
+        // Retry with new token
+        headers['Authorization'] = `Bearer ${authToken}`;
+        const retry = await fetch(API + path, {
+          method,
+          headers,
+          body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
+        });
+        const retryData = await retry.json();
+        if (!retry.ok) throw new Error(retryData.error || 'Error del servidor');
+        return retryData;
+      } else {
+        // Can't refresh — go to login
+        LS.clearSession();
+        authToken = null;
+        showScreen('s-login');
+        renderAuthForm('login');
+        throw new Error('Sesión expirada');
+      }
+    }
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Error del servidor');
     return data;
@@ -1473,7 +1516,8 @@ async function loadAllData() {
 }
 
 // ── Override saveUser to also push to API ──
-function saveUser() {
+let _lastProfileSave = 0;
+function saveUser(saveProfile=false) {
   if (currentUser && users[currentUser]) {
     users[currentUser].expenses = expenses;
     users[currentUser].incomes = incomes;
@@ -1483,14 +1527,16 @@ function saveUser() {
     users[currentUser].cur = cur;
   }
   LS.save();
-  // Sync budgets/profile to server
-  if (authToken && !useLocalOnly) {
+  // Only sync profile occasionally to avoid 401 spam
+  const now = Date.now();
+  if (saveProfile && authToken && !useLocalOnly && now - _lastProfileSave > 30000) {
+    _lastProfileSave = now;
     apiCall('PUT', '/api/auth/profile', { name: users[currentUser]?.name, lang, currency: cur, budgets }).catch(()=>{});
   }
 }
 
 // Auto-save every 30s
-setInterval(() => { if (currentUser) saveUser(); }, 30000);
+setInterval(() => { if (currentUser) LS.save(); }, 30000);
 window.addEventListener('beforeunload', () => { if (currentUser) saveUser(); });
 window.addEventListener('pagehide', () => { if (currentUser) saveUser(); });
 
