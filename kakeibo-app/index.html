@@ -1397,13 +1397,20 @@ const LS = {
 };
 
 // ── API helpers ──
+const SUPABASE_URL = 'https://dshkwirkoigxcegeltag.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_gYy18cB7NmHj75QU7DOgBQ_KHffoSoG';
+
 async function refreshAuthToken() {
   try {
     const session = LS.getSession();
     if (!session?.refresh) return false;
-    const r = await fetch('/api/auth/refresh', {
+    // Call Supabase auth API directly
+    const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+      },
       body: JSON.stringify({ refresh_token: session.refresh })
     });
     if (!r.ok) return false;
@@ -1414,7 +1421,10 @@ async function refreshAuthToken() {
       return true;
     }
     return false;
-  } catch { return false; }
+  } catch(e) {
+    console.warn('Token refresh failed:', e.message);
+    return false;
+  }
 }
 
 async function apiCall(method, path, body, isFormData=false) {
@@ -1876,48 +1886,37 @@ window.addEventListener('DOMContentLoaded', () => {
       budgets = users[email].budgets||{}; expenses = users[email].expenses||[];
       incomes = users[email].incomes||[]; bankExpenses = users[email].bankExpenses||[];
 
-      // Use existing token, verify it works, refresh if needed
-      if (session.token) {
-        authToken = session.token;
-        // Test if token is still valid
-        fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + authToken } })
-          .then(r => {
-            if (r.ok) {
-              // Token valid — load data and go
-              return r.json().then(d => {
-                if (d.profile) {
-                  lang = d.profile.lang || lang;
-                  cur = d.profile.currency || cur;
-                  budgets = d.profile.budgets || budgets;
-                }
-                loadAllData().then(() => initMain());
-              });
-            } else if (r.status === 401 && session.refresh) {
-              // Token expired — try refresh
-              return fetch('/api/auth/refresh', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ refresh_token: session.refresh })
-              }).then(r2 => r2.json()).then(data => {
-                if (data.access_token) {
-                  authToken = data.access_token;
-                  LS.setSession(authToken, session.user, data.refresh_token || session.refresh);
-                  loadAllData().then(() => initMain());
-                } else {
-                  // Refresh failed — show login
-                  LS.clearSession();
-                  showScreen('s-login');
-                  renderAuthForm('login');
-                }
-              });
+      // Restore session — always try to refresh token first
+      if (session.refresh) {
+        // Try to get fresh token from Supabase directly
+        fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+          body: JSON.stringify({ refresh_token: session.refresh })
+        }).then(r => r.json()).then(data => {
+          if (data.access_token) {
+            authToken = data.access_token;
+            LS.setSession(authToken, session.user, data.refresh_token || session.refresh);
+            loadAllData().then(() => initMain());
+          } else {
+            // Refresh failed — try existing token
+            authToken = session.token || null;
+            if (authToken) {
+              loadAllData().then(() => initMain()).catch(() => initMain());
             } else {
-              initMain();
+              LS.clearSession();
+              showScreen('s-login');
+              renderAuthForm('login');
             }
-          })
-          .catch(() => {
-            // No internet — use local data
-            initMain();
-          });
+          }
+        }).catch(() => {
+          // No internet — use local data
+          authToken = session.token || null;
+          initMain();
+        });
+      } else if (session.token) {
+        authToken = session.token;
+        loadAllData().then(() => initMain()).catch(() => initMain());
       } else {
         initMain();
       }
