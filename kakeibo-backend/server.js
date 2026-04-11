@@ -118,7 +118,23 @@ app.get('/api/expenses', requireAuth, async (req, res) => {
     const { data, error, count } = await q;
     console.log('Expenses result - count:', data?.length, 'error:', error?.message);
     if (error) return res.status(500).json({ error: error.message });
-    res.json({ expenses: (data||[]).map(e => ({ ...e, desc: e.description, amt: e.amount, cat: e.category })) });
+    const mapped = (data||[]).map(e => {
+      return {
+        id: e.id,
+        desc: e.description,
+        description: e.description,
+        category: e.category,
+        cat: e.category,
+        amount: e.amount,
+        amt: e.amount,
+        date: e.date,
+        note: e.note,
+        user_id: e.user_id,
+        created_at: e.created_at
+      };
+    });
+    console.log('Mapped first item:', JSON.stringify(mapped[0]));
+    res.json({ expenses: mapped });
   } catch(e) {
     console.error('GET expenses error:', e.message);
     res.status(500).json({ error: e.message });
