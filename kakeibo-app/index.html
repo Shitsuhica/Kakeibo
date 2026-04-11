@@ -1886,40 +1886,17 @@ window.addEventListener('DOMContentLoaded', () => {
       budgets = users[email].budgets||{}; expenses = users[email].expenses||[];
       incomes = users[email].incomes||[]; bankExpenses = users[email].bankExpenses||[];
 
-      // Restore session — always try to refresh token first
-      if (session.refresh) {
-        // Try to get fresh token from Supabase directly
-        fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-          body: JSON.stringify({ refresh_token: session.refresh })
-        }).then(r => r.json()).then(data => {
-          if (data.access_token) {
-            authToken = data.access_token;
-            LS.setSession(authToken, session.user, data.refresh_token || session.refresh);
-            loadAllData().then(() => initMain());
-          } else {
-            // Refresh failed — try existing token
-            authToken = session.token || null;
-            if (authToken) {
-              loadAllData().then(() => initMain()).catch(() => initMain());
-            } else {
-              LS.clearSession();
-              showScreen('s-login');
-              renderAuthForm('login');
-            }
-          }
-        }).catch(() => {
-          // No internet — use local data
-          authToken = session.token || null;
-          initMain();
-        });
-      } else if (session.token) {
-        authToken = session.token;
+      // Restore session — refresh token first, then load data
+      authToken = session.token || null;
+      refreshAuthToken().then(refreshed => {
+        if (!refreshed && !authToken) {
+          LS.clearSession();
+          showScreen('s-login');
+          renderAuthForm('login');
+          return;
+        }
         loadAllData().then(() => initMain()).catch(() => initMain());
-      } else {
-        initMain();
-      }
+      });
     }
   }
 });
