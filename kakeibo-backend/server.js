@@ -74,6 +74,18 @@ app.post('/api/auth/login', async (req, res) => {
   res.json({ success: true, user: data.user, session: data.session, profile });
 });
 
+app.post('/api/auth/refresh', async (req, res) => {
+  const { refresh_token } = req.body;
+  if (!refresh_token) return res.status(400).json({ error: 'refresh_token requerido.' });
+  try {
+    const { data, error } = await supabaseAuth.auth.refreshSession({ refresh_token });
+    if (error || !data.session) return res.status(401).json({ error: 'Sesión expirada. Por favor inicia sesión de nuevo.' });
+    res.json({ access_token: data.session.access_token, refresh_token: data.session.refresh_token });
+  } catch(e) {
+    res.status(401).json({ error: 'Error al renovar sesión.' });
+  }
+});
+
 app.get('/api/auth/me', requireAuth, async (req, res) => {
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', req.user.id).single();
   res.json({ user: req.user, profile });
