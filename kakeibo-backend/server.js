@@ -108,14 +108,21 @@ app.put('/api/auth/profile', requireAuth, async (req, res) => {
 // EXPENSES
 // ══════════════════════════════
 app.get('/api/expenses', requireAuth, async (req, res) => {
-  const { from, to, category, limit = 500 } = req.query;
-  let q = supabase.from('expenses').select('*').eq('user_id', req.user.id).order('date', { ascending: false }).limit(Number(limit));
-  if (from) q = q.gte('date', from);
-  if (to) q = q.lte('date', to);
-  if (category && category !== 'all') q = q.eq('category', category);
-  const { data, error } = await q;
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ expenses: (data||[]).map(e => ({ ...e, desc: e.description, amt: e.amount, cat: e.category })) });
+  try {
+    const { from, to, category, limit = 500 } = req.query;
+    console.log('GET expenses for user:', req.user.id);
+    let q = supabase.from('expenses').select('*').eq('user_id', req.user.id).order('date', { ascending: false }).limit(Number(limit));
+    if (from) q = q.gte('date', from);
+    if (to) q = q.lte('date', to);
+    if (category && category !== 'all') q = q.eq('category', category);
+    const { data, error, count } = await q;
+    console.log('Expenses result - count:', data?.length, 'error:', error?.message);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ expenses: (data||[]).map(e => ({ ...e, desc: e.description, amt: e.amount, cat: e.category })) });
+  } catch(e) {
+    console.error('GET expenses error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/expenses', requireAuth, async (req, res) => {
