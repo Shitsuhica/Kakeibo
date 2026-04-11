@@ -1399,7 +1399,8 @@ const LS = {
 // ── API helpers ──
 async function apiCall(method, path, body, isFormData=false) {
   const headers = {};
-  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  const tkn = authToken || getToken();
+  if (tkn) { authToken = tkn; headers['Authorization'] = `Bearer ${tkn}`; }
   if (!isFormData && body) headers['Content-Type'] = 'application/json';
   try {
     const resp = await fetch(API + path, {
@@ -1603,12 +1604,19 @@ function logout() {
 // OVERRIDE addManual, addIncome, addBankExpense
 // to push to API when online
 // ══════════════════════════════════════════════
+function getToken() {
+  if (authToken) return authToken;
+  try { return JSON.parse(localStorage.getItem('kakeibo_session')||'{}').token || null; } catch { return null; }
+}
+
 function addManual() {
   const desc=cl('man-desc').value.trim(), amt=parseFloat(cl('man-amt').value), date=cl('man-date').value, cat=cl('man-cat').value, note=cl('man-note').value;
   if (!desc||!amt||!date) { alert('Completa los campos requeridos'); return; }
   const entry = { desc, cat, amt, date, note, _local: true };
   expenses.push(entry);
-  if (authToken && !useLocalOnly) {
+  const token = getToken();
+  if (token && !useLocalOnly) {
+    if (!authToken) authToken = token;
     apiCall('POST', '/api/expenses', entry).then(r => { delete entry._local; LS.save(); }).catch(()=>{});
   }
   saveUser();
@@ -1622,7 +1630,9 @@ function addIncome() {
   if (!desc||!amt||!date) { alert('Completa los campos requeridos'); return; }
   const entry = { desc, type, freq, amt, date, note, _local: true };
   incomes.push(entry);
-  if (authToken && !useLocalOnly) {
+  const token = getToken();
+  if (token && !useLocalOnly) {
+    if (!authToken) authToken = token;
     apiCall('POST', '/api/incomes', entry).then(r => { delete entry._local; LS.save(); }).catch(()=>{});
   }
   saveUser();
@@ -1639,7 +1649,9 @@ function addBankExpense() {
   if (!desc||!amt||!date) { alert('Completa los campos requeridos'); return; }
   const entry = { desc, bankType, cat, cardName, amt, date, note, _local: true };
   bankExpenses.push(entry);
-  if (authToken && !useLocalOnly) {
+  const tokenBank = getToken();
+  if (tokenBank && !useLocalOnly) {
+    if (!authToken) authToken = tokenBank;
     apiCall('POST', '/api/bank-expenses', entry).then(r => { delete entry._local; LS.save(); }).catch(()=>{});
   }
   saveUser();
@@ -1815,29 +1827,48 @@ window.addEventListener('DOMContentLoaded', () => {
       budgets = users[email].budgets||{}; expenses = users[email].expenses||[];
       incomes = users[email].incomes||[]; bankExpenses = users[email].bankExpenses||[];
 
-      // Try to refresh the token using refresh_token
-      if (session.refresh && !useLocalOnly) {
-        fetch('/api/auth/refresh', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: session.refresh })
-        }).then(r => r.json()).then(data => {
-          if (data.access_token) {
-            authToken = data.access_token;
-            LS.setSession(authToken, session.user, data.refresh_token || session.refresh);
-            loadAllData().then(() => initMain());
-          } else {
-            // Refresh failed — use local data
-            useLocalOnly = true;
-            initMain();
-          }
-        }).catch(() => {
-          useLocalOnly = true;
-          initMain();
-        });
-      } else if (session.token) {
+      // Use existing token, verify it works, refresh if needed
+      if (session.token) {
         authToken = session.token;
-        loadAllData().then(() => initMain()).catch(() => initMain());
+        // Test if token is still valid
+        fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + authToken } })
+          .then(r => {
+            if (r.ok) {
+              // Token valid — load data and go
+              return r.json().then(d => {
+                if (d.profile) {
+                  lang = d.profile.lang || lang;
+                  cur = d.profile.currency || cur;
+                  budgets = d.profile.budgets || budgets;
+                }
+                loadAllData().then(() => initMain());
+              });
+            } else if (r.status === 401 && session.refresh) {
+              // Token expired — try refresh
+              return fetch('/api/auth/refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh_token: session.refresh })
+              }).then(r2 => r2.json()).then(data => {
+                if (data.access_token) {
+                  authToken = data.access_token;
+                  LS.setSession(authToken, session.user, data.refresh_token || session.refresh);
+                  loadAllData().then(() => initMain());
+                } else {
+                  // Refresh failed — show login
+                  LS.clearSession();
+                  showScreen('s-login');
+                  renderAuthForm('login');
+                }
+              });
+            } else {
+              initMain();
+            }
+          })
+          .catch(() => {
+            // No internet — use local data
+            initMain();
+          });
       } else {
         initMain();
       }
