@@ -29,9 +29,15 @@ const supabaseAuth = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
+app.set('trust proxy', 1);
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*', methods: ['GET','POST','PUT','DELETE'] }));
 app.use(express.json({ limit: '2mb' }));
-app.use('/api/', rateLimit({ windowMs: 60000, max: 30, message: { error: 'Demasiadas solicitudes.' } }));
+app.use('/api/', rateLimit({ 
+  windowMs: 60000, max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas solicitudes.' }
+}));
 app.use(express.static(path.join(__dirname, '../kakeibo-app')));
 
 // ── Auth middleware ──
@@ -113,11 +119,27 @@ app.get('/api/expenses', requireAuth, async (req, res) => {
 });
 
 app.post('/api/expenses', requireAuth, async (req, res) => {
-  const items = Array.isArray(req.body) ? req.body : [req.body];
-  const rows = items.map(e => ({ desc: e.desc, category: e.cat||e.category, amount: e.amt||e.amount, date: e.date, note: e.note||'', user_id: req.user.id }));
-  const { data, error } = await supabase.from('expenses').insert(rows).select();
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true, expenses: data });
+  try {
+    const items = Array.isArray(req.body) ? req.body : [req.body];
+    const rows = items.map(e => ({ 
+      desc: e.desc || e.description || 'Sin descripción', 
+      category: e.cat || e.category || 'varios', 
+      amount: parseFloat(e.amt || e.amount || 0), 
+      date: e.date || new Date().toISOString().split('T')[0], 
+      note: e.note || '', 
+      user_id: req.user.id 
+    }));
+    console.log('Saving expenses:', JSON.stringify(rows));
+    const { data, error } = await supabase.from('expenses').insert(rows).select();
+    if (error) {
+      console.error('Supabase expenses error:', error.message, error.details, error.hint);
+      return res.status(500).json({ error: error.message });
+    }
+    res.json({ success: true, expenses: data });
+  } catch(e) {
+    console.error('Expenses endpoint error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.delete('/api/expenses/:id', requireAuth, async (req, res) => {
@@ -135,10 +157,20 @@ app.get('/api/incomes', requireAuth, async (req, res) => {
 });
 
 app.post('/api/incomes', requireAuth, async (req, res) => {
-  const i = req.body;
-  const { data, error } = await supabase.from('incomes').insert({ desc: i.desc, type: i.type, freq: i.freq, amount: i.amt||i.amount, date: i.date, note: i.note||'', user_id: req.user.id }).select();
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true, income: data[0] });
+  try {
+    const i = req.body;
+    const row = { desc: i.desc, type: i.type || 'otro', freq: i.freq || 'mensual', amount: parseFloat(i.amt||i.amount||0), date: i.date || new Date().toISOString().split('T')[0], note: i.note||'', user_id: req.user.id };
+    console.log('Saving income:', JSON.stringify(row));
+    const { data, error } = await supabase.from('incomes').insert(row).select();
+    if (error) {
+      console.error('Supabase incomes error:', error.message, error.details, error.hint);
+      return res.status(500).json({ error: error.message });
+    }
+    res.json({ success: true, income: data[0] });
+  } catch(e) {
+    console.error('Incomes endpoint error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.delete('/api/incomes/:id', requireAuth, async (req, res) => {
