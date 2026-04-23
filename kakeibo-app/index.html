@@ -1429,8 +1429,12 @@ async function refreshAuthToken() {
 
 async function apiCall(method, path, body, isFormData=false) {
   const headers = {};
-  const tkn = authToken || getToken();
-  if (tkn) { authToken = tkn; headers['Authorization'] = `Bearer ${tkn}`; }
+  // Use authToken in memory first, fallback to localStorage
+  const tkn = authToken || window._authToken || getToken();
+  if (tkn) { 
+    if (!authToken) authToken = tkn;
+    headers['Authorization'] = `Bearer ${tkn}`; 
+  }
   if (!isFormData && body) headers['Content-Type'] = 'application/json';
   try {
     const resp = await fetch(API + path, {
@@ -1505,11 +1509,13 @@ async function syncToServer() {
 
 // ── Load all data from API ──
 async function loadAllData() {
-  // Always try to get token from every possible source
-  if (!authToken) authToken = window._authToken || getToken();
+  // Only get token from storage if not already in memory
+  if (!authToken) {
+    authToken = window._authToken || getToken();
+  }
   if (useLocalOnly || !authToken) return;
   try {
-    console.log('Loading all data for user...');
+    console.log('Loading all data for user... token:', authToken?.substring(0,15));
     const [expRes, incRes, bankRes] = await Promise.all([
       apiCall('GET', '/api/expenses'),
       apiCall('GET', '/api/incomes'),
@@ -1905,7 +1911,10 @@ window.addEventListener('DOMContentLoaded', () => {
           renderAuthForm('login');
           return;
         }
-        loadAllData().then(() => initMain()).catch(() => initMain());
+        // Small delay to ensure authToken is fully set before loading
+        setTimeout(() => {
+          loadAllData().then(() => initMain()).catch(() => initMain());
+        }, 100);
       });
     }
   }
