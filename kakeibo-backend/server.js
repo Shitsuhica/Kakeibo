@@ -58,13 +58,16 @@ function decodeJWT(token) {
 
 async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
+  console.log('requireAuth - token present:', !!token, 'length:', token?.length);
   if (!token) return res.status(401).json({ error: 'No autorizado.' });
   const payload = decodeJWT(token);
+  console.log('requireAuth - payload sub:', payload?.sub, 'exp:', payload?.exp, 'now:', Math.floor(Date.now()/1000));
   if (!payload || !payload.sub) {
-    console.log('Invalid token payload:', payload);
+    console.log('Invalid token payload:', JSON.stringify(payload));
     return res.status(401).json({ error: 'Token inválido.' });
   }
   if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+    console.log('Token expired:', payload.exp, '<', Math.floor(Date.now()/1000));
     return res.status(401).json({ error: 'Token expirado.' });
   }
   req.user = { id: payload.sub, email: payload.email };
