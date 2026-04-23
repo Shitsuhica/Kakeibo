@@ -1559,26 +1559,31 @@ async function doRegister() {
   const pass = cl('a-pass').value;
   if (!name||!email||!pass) { alert('Completa todos los campos'); return; }
   try {
-    const data = await apiCall('POST', '/api/auth/register', { email, password: pass, name, lang, currency: cur });
-    authToken = data.session?.access_token;
-    const refreshToken = data.session?.refresh_token;
+    const resp = await fetch('https://dshkwirkoigxcegeltag.supabase.co/auth/v1/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': 'sb_publishable_gYy18cB7NmHj75QU7DOgBQ_KHffoSoG' },
+      body: JSON.stringify({ email, password: pass, data: { name, lang, currency: cur } })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.id) {
+      alert(data.msg || data.error_description || 'Error al registrar.');
+      return;
+    }
+    const loginResp = await fetch('https://dshkwirkoigxcegeltag.supabase.co/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': 'sb_publishable_gYy18cB7NmHj75QU7DOgBQ_KHffoSoG' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    const loginData = await loginResp.json();
+    authToken = loginData.access_token;
     currentUser = email;
     users[email] = { name, pass:'', budgets:{...budgets}, expenses:[], incomes:[], bankExpenses:[], lang, cur };
-    LS.setSession(authToken, { email, name }, refreshToken);
+    LS.setSession(authToken, { email, name }, loginData.refresh_token);
+    apiCall('PUT', '/api/auth/profile', { name, lang, currency: cur, budgets }).catch(()=>{});
     LS.save();
     initMain();
-  } catch (e) {
-    if (useLocalOnly) {
-      // Fallback to local-only
-      if (users[email]) { alert('Correo ya registrado'); return; }
-      users[email] = { name, pass, budgets:{...budgets}, expenses:[], incomes:[], bankExpenses:[], lang, cur };
-      currentUser = email;
-      LS.setSession(null, { email, name });
-      LS.save();
-      initMain();
-    } else {
-      alert(e.message);
-    }
+  } catch(e) {
+    alert('Error al conectar. Verifica tu conexión: ' + e.message);
   }
 }
 
@@ -1586,27 +1591,38 @@ async function doLogin() {
   const email = cl('a-email').value.trim();
   const pass = cl('a-pass').value;
   try {
-    const data = await apiCall('POST', '/api/auth/login', { email, password: pass });
-    authToken = data.session?.access_token;
-    const refreshToken = data.session?.refresh_token;
+    // Login directly with Supabase from frontend — no server needed
+    const resp = await fetch('https://dshkwirkoigxcegeltag.supabase.co/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': 'sb_publishable_gYy18cB7NmHj75QU7DOgBQ_KHffoSoG' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.access_token) {
+      alert(data.error_description || data.msg || 'Credenciales incorrectas');
+      return;
+    }
+    authToken = data.access_token;
+    const refreshToken = data.refresh_token;
     currentUser = email;
-    const p = data.profile || {};
-    lang = p.lang || lang;
-    cur = p.currency || cur;
-    budgets = p.budgets || {};
-    users[email] = { name: p.name || email, pass:'', budgets, expenses:[], incomes:[], bankExpenses:[], lang, cur };
-    LS.setSession(authToken, { email, name: p.name }, refreshToken);
+    const user = data.user;
+    const meta = user?.user_metadata || {};
+    lang = meta.lang || lang;
+    cur = meta.currency || cur;
+    users[email] = { name: meta.name || email, pass:'', budgets:{}, expenses:[], incomes:[], bankExpenses:[], lang, cur };
+    LS.setSession(authToken, { email, name: meta.name }, refreshToken);
+    // Load profile from server
+    try {
+      const profile = await apiCall('GET', '/api/auth/me');
+      if (profile?.profile) {
+        budgets = profile.profile.budgets || {};
+        users[email].budgets = budgets;
+      }
+    } catch(e) {}
     await loadAllData();
     initMain();
   } catch (e) {
-    if (useLocalOnly && users[email]) {
-      if (users[email].pass !== pass) { alert('Credenciales incorrectas'); return; }
-      currentUser = email; lang = users[email].lang||lang; cur = users[email].cur||cur;
-      budgets = users[email].budgets||{}; expenses = users[email].expenses||[];
-      incomes = users[email].incomes||[]; bankExpenses = users[email].bankExpenses||[];
-      LS.setSession(null, { email });
-      initMain();
-    } else { alert(e.message || 'Credenciales incorrectas'); }
+    alert('Error al conectar. Verifica tu conexión.');
   }
 }
 
