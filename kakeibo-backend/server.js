@@ -45,11 +45,23 @@ async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'No autorizado.' });
   try {
-    const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
-    if (error || !user) return res.status(401).json({ error: 'Token inválido.' });
+    // Verify token by calling Supabase REST API directly
+    const resp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
+      }
+    });
+    if (!resp.ok) {
+      console.log('Auth failed status:', resp.status);
+      return res.status(401).json({ error: 'Token inválido.' });
+    }
+    const user = await resp.json();
+    if (!user?.id) return res.status(401).json({ error: 'Usuario no encontrado.' });
     req.user = user;
     next();
   } catch(e) {
+    console.error('Auth error:', e.message);
     return res.status(401).json({ error: 'Error de autenticación.' });
   }
 }
