@@ -1505,8 +1505,8 @@ async function syncToServer() {
 
 // ── Load all data from API ──
 async function loadAllData() {
-  // Always try to get token from localStorage if authToken is null
-  if (!authToken) authToken = getToken();
+  // Always try to get token from every possible source
+  if (!authToken) authToken = window._authToken || getToken();
   if (useLocalOnly || !authToken) return;
   try {
     console.log('Loading all data for user...');
@@ -1611,14 +1611,8 @@ async function doLogin() {
     cur = meta.currency || cur;
     users[email] = { name: meta.name || email, pass:'', budgets:{}, expenses:[], incomes:[], bankExpenses:[], lang, cur };
     LS.setSession(authToken, { email, name: meta.name }, refreshToken);
-    // Load profile from server
-    try {
-      const profile = await apiCall('GET', '/api/auth/me');
-      if (profile?.profile) {
-        budgets = profile.profile.budgets || {};
-        users[email].budgets = budgets;
-      }
-    } catch(e) {}
+    // Set authToken explicitly before loading data
+    window._authToken = authToken;
     await loadAllData();
     initMain();
   } catch (e) {
