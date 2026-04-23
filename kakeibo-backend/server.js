@@ -77,33 +77,69 @@ async function requireAuth(req, res, next) {
 app.post('/api/auth/register', async (req, res) => {
   const { email, password, name, lang, currency } = req.body;
   if (!email || !password || !name) return res.status(400).json({ error: 'Campos requeridos: email, password, name.' });
-  const { data, error } = await supabaseAuth.auth.signUp({ email, password, options: { data: { name, lang: lang||'es', currency: currency||'JPY' } } });
-  if (error) return res.status(400).json({ error: error.message });
-  await supabase.from('profiles').upsert({ id: data.user.id, name, lang: lang||'es', currency: currency||'JPY' });
-  res.json({ success: true, user: data.user, session: data.session });
+  try {
+    const authResp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': process.env.SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email, password, data: { name, lang: lang||'es', currency: currency||'JPY' } })
+    });
+    const authData = await authResp.json();
+    if (!authResp.ok || !authData.id) {
+      return res.status(400).json({ error: authData.msg || authData.error_description || 'Error al registrar.' });
+    }
+    await supabase.from('profiles').upsert({ id: authData.id, name, lang: lang||'es', currency: currency||'JPY' });
+    // Auto-login after register
+    const loginResp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': process.env.SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email, password })
+    });
+    const loginData = await loginResp.json();
+    res.json({ success: true, user: authData, session: { access_token: loginData.access_token, refresh_token: loginData.refresh_token } });
+  } catch(e) {
+    console.error('Register error:', e.message);
+    res.status(500).json({ error: 'Error al registrar.' });
+  }
 });
 
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-  console.log('Login attempt:', email);
-  console.log('ANON KEY starts with:', (process.env.SUPABASE_ANON_KEY||'').substring(0,20));
-  console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
-  const { data, error } = await supabaseAuth.auth.signInWithPassword({ email, password });
-  if (error) {
-    console.log('Login error:', error.message, error.status, error.code);
-    return res.status(401).json({ error: error.message });
+  try {
+    // Call Supabase auth REST API directly
+    const authResp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': process.env.SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ email, password })
+    });
+    const authData = await authResp.json();
+    if (!authResp.ok || !authData.access_token) {
+      return res.status(401).json({ error: authData.error_description || authData.msg || 'Credenciales incorrectas.' });
+    }
+    const user = authData.user;
+    const session = { access_token: authData.access_token, refresh_token: authData.refresh_token };
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    res.json({ success: true, user, session, profile });
+  } catch(e) {
+    console.error('Login error:', e.message);
+    res.status(500).json({ error: 'Error al iniciar sesión.' });
   }
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
-  res.json({ success: true, user: data.user, session: data.session, profile });
 });
 
 app.post('/api/auth/refresh', async (req, res) => {
   const { refresh_token } = req.body;
   if (!refresh_token) return res.status(400).json({ error: 'refresh_token requerido.' });
   try {
-    const { data, error } = await supabaseAuth.auth.refreshSession({ refresh_token });
-    if (error || !data.session) return res.status(401).json({ error: 'Sesión expirada. Por favor inicia sesión de nuevo.' });
-    res.json({ access_token: data.session.access_token, refresh_token: data.session.refresh_token });
+    const authResp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': process.env.SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token })
+    });
+    const data = await authResp.json();
+    if (!authResp.ok || !data.access_token) return res.status(401).json({ error: 'Sesión expirada.' });
+    res.json({ access_token: data.access_token, refresh_token: data.refresh_token });
   } catch(e) {
     res.status(401).json({ error: 'Error al renovar sesión.' });
   }
