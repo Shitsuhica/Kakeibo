@@ -41,25 +41,34 @@ app.use('/api/', rateLimit({
 app.use(express.static(path.join(__dirname, '../kakeibo-app')));
 
 // ── Auth middleware ──
+function decodeJWT(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    // Handle base64url: replace - with + and _ with /, add padding
+    let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) base64 += '=';
+    const decoded = Buffer.from(base64, 'base64').toString('utf8');
+    return JSON.parse(decoded);
+  } catch(e) {
+    console.error('JWT decode error:', e.message);
+    return null;
+  }
+}
+
 async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'No autorizado.' });
-  try {
-    // Decode JWT manually to extract user_id without network call
-    const parts = token.split('.');
-    if (parts.length !== 3) return res.status(401).json({ error: 'Token inválido.' });
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
-    if (!payload.sub) return res.status(401).json({ error: 'Token sin usuario.' });
-    // Check expiry
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-      return res.status(401).json({ error: 'Token expirado.' });
-    }
-    req.user = { id: payload.sub, email: payload.email, ...payload };
-    next();
-  } catch(e) {
-    console.error('Auth error:', e.message);
-    return res.status(401).json({ error: 'Error de autenticación.' });
+  const payload = decodeJWT(token);
+  if (!payload || !payload.sub) {
+    console.log('Invalid token payload:', payload);
+    return res.status(401).json({ error: 'Token inválido.' });
   }
+  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+    return res.status(401).json({ error: 'Token expirado.' });
+  }
+  req.user = { id: payload.sub, email: payload.email };
+  next();
 }
 
 // ══════════════════════════════
