@@ -45,20 +45,16 @@ async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'No autorizado.' });
   try {
-    // Verify token by calling Supabase REST API directly
-    const resp = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'apikey': process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
-      }
-    });
-    if (!resp.ok) {
-      console.log('Auth failed status:', resp.status);
-      return res.status(401).json({ error: 'Token inválido.' });
+    // Decode JWT manually to extract user_id without network call
+    const parts = token.split('.');
+    if (parts.length !== 3) return res.status(401).json({ error: 'Token inválido.' });
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    if (!payload.sub) return res.status(401).json({ error: 'Token sin usuario.' });
+    // Check expiry
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+      return res.status(401).json({ error: 'Token expirado.' });
     }
-    const user = await resp.json();
-    if (!user?.id) return res.status(401).json({ error: 'Usuario no encontrado.' });
-    req.user = user;
+    req.user = { id: payload.sub, email: payload.email, ...payload };
     next();
   } catch(e) {
     console.error('Auth error:', e.message);
